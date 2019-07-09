@@ -111,22 +111,65 @@ function r (thenable :Private, value :any, status :Status) :void {
 
 var Public :{ new (executor :Executor) :Public } = function Thenable (this :Private, executor :Executor) :void {
 	if ( typeof executor!=='function' ) { throw TypeError('Thenable executor is not a function'); }
-	this._on = [];
+	var executed :boolean | undefined;
+	var red :boolean | undefined;
+	var _value :any;
+	var _status :Status | undefined;
+	var THIS :Private = this;
+	THIS._on = [];
 	try {
-		var THIS :Private = this;
 		executor(
 			function resolve (value :any) {
-				if ( ( isThenable as (value :any) => value is Private )(value) ) {
-					var _status :Status = value._status;
-					if ( _status===PENDING ) { value._on!.push(THIS); }
-					else { r(THIS, value._value, _status); }
+				if ( red ) { return; }
+				red = true;
+				if ( executed ) {
+					if ( ( isThenable as (value :any) => value is Private )(value) ) {
+						_status = value._status;
+						if ( _status===PENDING ) { value._on!.push(THIS); }
+						else { r(THIS, value._value, _status); }
+					}
+					else { r(THIS, value, FULFILLED); }
 				}
-				else { r(THIS, value, FULFILLED); }
+				else {
+					_value = value;
+					_status = FULFILLED;
+				}
 			},
-			function reject (error :any) { r(THIS, error, REJECTED); }
+			function reject (error :any) {
+				if ( red ) { return; }
+				red = true;
+				if ( executed ) { r(THIS, error, REJECTED); }
+				else {
+					_value = error;
+					_status = REJECTED;
+				}
+			}
 		);
+		if ( !red ) {
+			executed = true;
+			return;
+		}
 	}
-	catch (error) { r(this, error, REJECTED); }
+	catch (error) {
+		if ( !red ) {
+			red = true;
+			THIS._value = error;
+			THIS._status = REJECTED;
+			THIS._on = null;
+			return;
+		}
+	}
+	if ( _status===FULFILLED && ( isThenable as (value :any) => value is Private )(_value) ) {
+		_status = _value._status;
+		if ( _status===PENDING ) {
+			_value._on!.push(THIS);
+			return;
+		}
+		_value = _value._value;
+	}
+	THIS._value = _value;
+	THIS._status = _status!;
+	THIS._on = null;
 } as unknown as { new (executor :Executor) :Public };
 
 Private.prototype = Public.prototype = {

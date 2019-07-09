@@ -1,6 +1,6 @@
 ﻿'use strict';
 
-var version = '1.0.0';
+var version = '1.0.1';
 
 var freeze = Object.freeze;
 
@@ -202,27 +202,74 @@ var Public = function Thenable(executor) {
     if (typeof executor !== 'function') {
         throw TypeError('Thenable executor is not a function');
     }
-    this._on = [];
+    var executed;
+    var red;
+    var _value;
+    var _status;
+    var THIS = this;
+    THIS._on = [];
     try {
-        var THIS = this;
         executor(function resolve(value) {
-            if (isThenable(value)) {
-                var _status = value._status;
-                if (_status === PENDING) {
-                    value._on.push(THIS);
+            if (red) {
+                return;
+            }
+            red = true;
+            if (executed) {
+                if (isThenable(value)) {
+                    _status = value._status;
+                    if (_status === PENDING) {
+                        value._on.push(THIS);
+                    }
+                    else {
+                        r(THIS, value._value, _status);
+                    }
                 }
                 else {
-                    r(THIS, value._value, _status);
+                    r(THIS, value, FULFILLED);
                 }
             }
             else {
-                r(THIS, value, FULFILLED);
+                _value = value;
+                _status = FULFILLED;
             }
-        }, function reject(error) { r(THIS, error, REJECTED); });
+        }, function reject(error) {
+            if (red) {
+                return;
+            }
+            red = true;
+            if (executed) {
+                r(THIS, error, REJECTED);
+            }
+            else {
+                _value = error;
+                _status = REJECTED;
+            }
+        });
+        if (!red) {
+            executed = true;
+            return;
+        }
     }
     catch (error) {
-        r(this, error, REJECTED);
+        if (!red) {
+            red = true;
+            THIS._value = error;
+            THIS._status = REJECTED;
+            THIS._on = null;
+            return;
+        }
     }
+    if (_status === FULFILLED && isThenable(_value)) {
+        _status = _value._status;
+        if (_status === PENDING) {
+            _value._on.push(THIS);
+            return;
+        }
+        _value = _value._value;
+    }
+    THIS._value = _value;
+    THIS._status = _status;
+    THIS._on = null;
 };
 Private.prototype = Public.prototype = {
     _status: PENDING,

@@ -1,6 +1,6 @@
 'use strict';
 
-require('@ltd/j-dev')(__dirname+'/..')(async ({ build, 龙腾道, get }) => {
+require('../test/test.js')(async ({ build, 龙腾道, get }) => {
 	
 	const zhs = `模仿 Promise API 的同步防爆栈工具。从属于“简计划”。`;
 	const en = `Sync stack anti-overflow util which's API is like Promise. Belong to "Plan J".`;
