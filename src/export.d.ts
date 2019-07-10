@@ -1,5 +1,8 @@
 export const version :string;
 
+export type Thenable = Readonly<object & {
+	then (this :Thenable, onfulfilled? :(value :any) => void, onrejected? :(value :any) => void) :Thenable,
+}>;
 export const Thenable :Readonly<{ new (executor :(resolve :(value :any) => void, reject :(value :any) => void) => void) :Thenable }>;
 
 export function resolve (value :any) :Thenable;
@@ -19,8 +22,4 @@ declare const exports :Thenable & Readonly<{
 	all :typeof all,
 	race :typeof race,
 	default :typeof exports,
-}>;
-
-type Thenable = Readonly<object & {
-	then (this :Thenable, onfulfilled? :(value :any) => void, onrejected? :(value :any) => void) :Thenable,
 }>;

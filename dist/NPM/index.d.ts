@@ -1,22 +1,25 @@
 export = exports;
 
-declare const exports :Readonly<{
+declare class exports {
 	
-	version :'2.0.0',
+	constructor (executor :(resolve :(value :any) => void, reject :(value :any) => void) => void)
+	then (this :exports, onfulfilled? :(value :any) => void, onrejected? :(value :any) => void) :exports
 	
-	new (executor :(resolve :(value :any) => void, reject :(value :any) => void) => void) :Thenable,
-	Thenable :Readonly<{ new (executor :(resolve :(value :any) => void, reject :(value :any) => void) => void) :Thenable }>,
+	static version :'3.0.0';
+	static resolve (value :any) :exports
+	static reject (error :any) :exports
+	static all (values :readonly any[]) :exports
+	static race (values :readonly any[]) :exports
 	
-	resolve (value :any) :Thenable,
-	reject (error :any) :Thenable,
-	
-	all (values :readonly any[]) :Thenable,
-	race (values :readonly any[]) :Thenable,
-	
-	default :typeof exports,
-	
-}>;
+}
 
-type Thenable = Readonly<object & {
-	then (this :Thenable, onfulfilled? :(value :any) => void, onrejected? :(value :any) => void) :Thenable,
-}>;
+declare namespace exports {
+	
+	export class Thenable {
+		constructor (executor :(resolve :(value :any) => void, reject :(value :any) => void) => void)
+		then (this :exports, onfulfilled? :(value :any) => void, onrejected? :(value :any) => void) :exports
+	}
+	
+	export { exports as default };
+	
+}
