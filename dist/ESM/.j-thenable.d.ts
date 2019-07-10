@@ -1,4 +1,4 @@
-export const version :'1.0.3';
+export const version :'2.0.0';
 
 export const Thenable :Readonly<{ new (executor :(resolve :(value :any) => void, reject :(value :any) => void) => void) :Thenable }>;
 
