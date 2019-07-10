@@ -12,26 +12,28 @@ type Status = 0 | 1 | 2;
 
 var Private = function Thenable () {} as unknown as { new () :Private };
 
-export function isThenable (value :any) :value is Public {
+function isPrivate (value :any) :value is Private {
 	return value instanceof Private;
 }
 
-function t (thenable :Private, value :any) :void {
-	if ( ( isThenable as (value :any) => value is Private )(value) ) {
-		var _status :Status = value._status;
-		if ( _status===PENDING ) {
-			thenable._on = [];
-			value._on!.push(thenable);
+function isPublic (value :any) :value is { then (onfulfilled? :Function, onrejected? :Function) :any } {
+	return value!=null && typeof value.then==='function';
+}
+
+function onto (thenable :Private, value :{ then (onfulfilled? :Function, onrejected? :Function) :any }) :void {
+	var red :boolean | undefined;
+	value.then(
+		function onfulfilled (value :any) :void {
+			if ( red ) { return; }
+			red = true;
+			r(thenable, value, FULFILLED);
+		},
+		function onrejected (error :any) :void {
+			if ( red ) { return; }
+			red = true;
+			r(thenable, error, REJECTED);
 		}
-		else {
-			thenable._value = value._value;
-			thenable._status = _status;
-		}
-	}
-	else {
-		thenable._value = value;
-		thenable._status = FULFILLED;
-	}
+	);
 }
 
 type Stack = { nextStack :Stack, thenable :Private, value :any, status :Status } | null;
@@ -50,7 +52,7 @@ function r (thenable :Private, value :any, status :Status) :void {
 					thenable._onfulfilled = undefined;
 					try {
 						value = _onfulfilled(value);
-						if ( ( isThenable as (value :any) => value is Private )(value) ) {
+						if ( isPrivate(value) ) {
 							var _status :Status = value._status;
 							if ( _status===PENDING ) {
 								value._on!.push(thenable);
@@ -61,8 +63,13 @@ function r (thenable :Private, value :any, status :Status) :void {
 								status = _status;
 							}
 						}
+						else if ( isPublic(value) ) {
+							onto(thenable, value);
+							break stack;
+						}
 					}
 					catch (error) {
+						if ( thenable._status!==PENDING ) { break stack; }
 						value = error;
 						status = REJECTED;
 					}
@@ -75,7 +82,7 @@ function r (thenable :Private, value :any, status :Status) :void {
 					thenable._onrejected = undefined;
 					try {
 						value = _onrejected(value);
-						if ( ( isThenable as (value :any) => value is Private )(value) ) {
+						if ( isPrivate(value) ) {
 							var _status :Status = value._status;
 							if ( _status===PENDING ) {
 								value._on!.push(thenable);
@@ -86,9 +93,16 @@ function r (thenable :Private, value :any, status :Status) :void {
 								status = _status;
 							}
 						}
+						else if ( isPublic(value) ) {
+							onto(thenable, value);
+							break stack;
+						}
 						else { status = FULFILLED; }
 					}
-					catch (error) { value = error; }
+					catch (error) {
+						if ( thenable._status!==PENDING ) { break stack; }
+						value = error;
+					}
 				}
 			}
 			thenable._value = value;
@@ -116,19 +130,22 @@ var Public :{ new (executor :Executor) :Public } = function Thenable (this :Priv
 	var _value :any;
 	var _status :Status | undefined;
 	var THIS :Private = this;
-	THIS._on = [];
 	try {
 		executor(
 			function resolve (value :any) {
 				if ( red ) { return; }
 				red = true;
 				if ( executed ) {
-					if ( ( isThenable as (value :any) => value is Private )(value) ) {
-						_status = value._status;
-						if ( _status===PENDING ) { value._on!.push(THIS); }
-						else { r(THIS, value._value, _status); }
+					try {
+						if ( isPrivate(value) ) {
+							_status = value._status;
+							if ( _status===PENDING ) { value._on!.push(THIS); }
+							else { r(THIS, value._value, _status); }
+						}
+						else if ( isPublic(value) ) { onto(THIS, value); }
+						else { r(THIS, value, FULFILLED); }
 					}
-					else { r(THIS, value, FULFILLED); }
+					catch (error) { if ( THIS._status===PENDING ) { r(THIS, error, REJECTED); } }
 				}
 				else {
 					_value = value;
@@ -147,6 +164,7 @@ var Public :{ new (executor :Executor) :Public } = function Thenable (this :Priv
 		);
 		if ( !red ) {
 			executed = true;
+			THIS._on = [];
 			return;
 		}
 	}
@@ -155,22 +173,54 @@ var Public :{ new (executor :Executor) :Public } = function Thenable (this :Priv
 			red = true;
 			THIS._value = error;
 			THIS._status = REJECTED;
-			THIS._on = null;
 			return;
 		}
 	}
-	if ( _status===FULFILLED && ( isThenable as (value :any) => value is Private )(_value) ) {
-		_status = _value._status;
-		if ( _status===PENDING ) {
-			_value._on!.push(THIS);
-			return;
+	try {
+		if ( _status===FULFILLED && isPrivate(_value) ) {
+			_status = _value._status;
+			if ( _status===PENDING ) {
+				THIS._on = [];
+				_value._on!.push(THIS);
+			}
+			else {
+				THIS._value = _value._value;
+				THIS._status = _status;
+			}
 		}
-		_value = _value._value;
+		else if ( _status===FULFILLED && isPublic(_value) ) {
+			THIS._on = [];
+			onto(THIS, _value);
+		}
+		else {
+			THIS._value = _value;
+			THIS._status = _status!;
+		}
 	}
-	THIS._value = _value;
-	THIS._status = _status!;
-	THIS._on = null;
+	catch (error) { if ( THIS._status===PENDING ) { r(THIS, error, REJECTED); } }
 } as unknown as { new (executor :Executor) :Public };
+
+function t (thenable :Private, value :any) :void {
+	if ( isPrivate(value) ) {
+		var _status :Status = value._status;
+		if ( _status===PENDING ) {
+			thenable._on = [];
+			value._on!.push(thenable);
+		}
+		else {
+			thenable._value = value._value;
+			thenable._status = _status;
+		}
+	}
+	else if ( isPublic(value) ) {
+		thenable._on = [];
+		onto(thenable, value);
+	}
+	else {
+		thenable._value = value;
+		thenable._status = FULFILLED;
+	}
+}
 
 Private.prototype = Public.prototype = {
 	_status: PENDING,
@@ -192,8 +242,10 @@ Private.prototype = Public.prototype = {
 				if ( typeof onfulfilled==='function' ) {
 					try { t(thenable, onfulfilled(THIS._value)); }
 					catch (error) {
-						thenable._value = error;
-						thenable._status = REJECTED;
+						if ( thenable._status===PENDING ) {
+							thenable._value = error;
+							thenable._status = REJECTED;
+						}
 					}
 				}
 				else {
@@ -205,8 +257,10 @@ Private.prototype = Public.prototype = {
 				if ( typeof onrejected==='function' ) {
 					try { t(thenable, onrejected(THIS._value)); }
 					catch (error) {
-						thenable._value = error;
-						thenable._status = REJECTED;
+						if ( thenable._status===PENDING ) {
+							thenable._value = error;
+							thenable._status = REJECTED;
+						}
 					}
 				}
 				else {
@@ -221,7 +275,13 @@ Private.prototype = Public.prototype = {
 
 export function resolve (value :any) :Public {
 	var THIS :Private = new Private;
-	t(THIS, value);
+	try { t(THIS, value); }
+	catch (error) {
+		if ( THIS._status===PENDING ) {
+			THIS._value = error;
+			THIS._status = REJECTED;
+		}
+	}
 	return THIS;
 }
 
@@ -238,16 +298,46 @@ export function all (values :readonly any[]) :Public {
 	var _value :any[] = [];
 	var count :number = 0;
 	function _onrejected (error :any) :void { THIS._status===PENDING && r(THIS, error, REJECTED); }
-	for ( var length :number = values.length, index :number = 0; index<length; ++index ) {
-		var value :any = values[index];
-		if ( ( isThenable as (value :any) => value is Private )(value) ) {
-			var _status :Status = value._status;
-			if ( _status===PENDING ) {
+	try {
+		for ( var length :number = values.length, index :number = 0; index<length; ++index ) {
+			var value :any = values[index];
+			if ( isPrivate(value) ) {
+				var _status :Status = value._status;
+				if ( _status===PENDING ) {
+					++count;
+					_value[index] = undefined;
+					value._on!.push({
+						_status: 0,
+						_value: undefined,
+						_on: null,
+						_onfulfilled: function (index :number) :Function {
+							return function (value :any) :void {
+								if ( THIS._status===PENDING ) {
+									_value[index] = value;
+									if ( count>1 ) { --count; }
+									else { r(THIS, _value, FULFILLED); }
+								}
+							};
+						}(index),
+						_onrejected: _onrejected
+					} as Private);
+				}
+				else if ( _status===REJECTED ) {
+					THIS._value = value._value;
+					THIS._status = REJECTED;
+					break;
+				}
+				else { _value[index] = value._value; }
+			}
+			else if ( isPublic(value) ) {
 				++count;
 				_value[index] = undefined;
-				value._on!.push({
-					_onfulfilled: function (index :number) :Function {
+				value.then(
+					function (index :number) :Function {
+						var red :boolean | undefined;
 						return function (value :any) :void {
+							if ( red ) { return; }
+							red = true;
 							if ( THIS._status===PENDING ) {
 								_value[index] = value;
 								if ( count>1 ) { --count; }
@@ -255,45 +345,52 @@ export function all (values :readonly any[]) :Public {
 							}
 						};
 					}(index),
-					_onrejected: _onrejected
-				} as Private);
+					_onrejected
+				);
 			}
-			else if ( _status===REJECTED ) {
-				THIS._value = value._value;
-				THIS._status = REJECTED;
-				break;
-			}
-			else { _value[index] = value._value; }
+			else { _value[index] = value; }
 		}
-		else { _value[index] = value; }
 	}
+	catch (error) { if ( THIS._status===PENDING ) { r(THIS, error, REJECTED); } }
 	return THIS;
 }
 
 export function race (values :readonly any[]) :Public {
 	var THIS :Private = new Private;
 	THIS._on = [];
+	function _onfulfilled (value :any) :void { THIS._status===PENDING && r(THIS, value, FULFILLED); }
+	function _onrejected (error :any) :void { THIS._status===PENDING && r(THIS, error, REJECTED); }
 	var that :Private = {
-		_onfulfilled: function (value :any) :void { THIS._status===PENDING && r(THIS, value, FULFILLED); },
-		_onrejected: function (error :any) :void { THIS._status===PENDING && r(THIS, error, REJECTED); }
+		_status: 0,
+		_value: undefined,
+		_on: null,
+		_onfulfilled: _onfulfilled,
+		_onrejected: _onrejected
 	} as Private;
-	for ( var length :number = values.length, index :number = 0; index<length; ++index ) {
-		var value :any = values[index];
-		if ( ( isThenable as (value :any) => value is Private )(value) ) {
-			var _status :Status = value._status;
-			if ( _status===PENDING ) { value._on!.push(that); }
+	try {
+		for ( var length :number = values.length, index :number = 0; index<length; ++index ) {
+			var value :any = values[index];
+			if ( isPrivate(value) ) {
+				var _status :Status = value._status;
+				if ( _status===PENDING ) { value._on!.push(that); }
+				else {
+					THIS._value = value._value;
+					THIS._status = _status;
+					break;
+				}
+			}
+			else if ( isPublic(value) ) {
+				value.then(_onfulfilled, _onrejected);
+				if ( THIS._status!==PENDING ) { break; }
+			}
 			else {
-				THIS._value = value._value;
-				THIS._status = _status;
+				THIS._value = value;
+				THIS._status = FULFILLED;
 				break;
 			}
 		}
-		else {
-			THIS._value = value;
-			THIS._status = FULFILLED;
-			break;
-		}
 	}
+	catch (error) { if ( THIS._status===PENDING ) { r(THIS, error, REJECTED); } }
 	return THIS;
 }
 
@@ -301,7 +398,6 @@ import Default from '.default?=';
 export default Default(Public, {
 	version: version,
 	Thenable: Public,
-	isThenable: isThenable,
 	resolve: resolve,
 	reject: reject,
 	all: all,

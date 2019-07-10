@@ -7,8 +7,6 @@ declare const exports :Readonly<{
 	new (executor :(resolve :(value :any) => void, reject :(value :any) => void) => void) :Thenable,
 	Thenable :Readonly<{ new (executor :(resolve :(value :any) => void, reject :(value :any) => void) => void) :Thenable }>,
 	
-	isThenable (value :any) :value is Thenable,
-	
 	resolve (value :any) :Thenable,
 	reject (error :any) :Thenable,
 	

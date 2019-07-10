@@ -3,12 +3,10 @@ export = exports;
 
 declare const exports :Readonly<{
 	
-	version :'1.0.1',
+	version :'1.0.2',
 	
 	new (executor :(resolve :(value :any) => void, reject :(value :any) => void) => void) :Thenable,
 	Thenable :Readonly<{ new (executor :(resolve :(value :any) => void, reject :(value :any) => void) => void) :Thenable }>,
-	
-	isThenable (value :any) :value is Thenable,
 	
 	resolve (value :any) :Thenable,
 	reject (error :any) :Thenable,
