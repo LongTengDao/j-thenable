@@ -197,7 +197,13 @@ var Public :{ new (executor :Executor) :Public } = function Thenable (this :Priv
 			THIS._status = _status!;
 		}
 	}
-	catch (error) { if ( THIS._status===PENDING ) { r(THIS, error, REJECTED); } }
+	catch (error) {
+		if ( THIS._status===PENDING ) {
+			THIS._value = error;
+			THIS._status = REJECTED;
+			THIS._on = null;
+		}
+	}
 } as unknown as { new (executor :Executor) :Public };
 
 function t (thenable :Private, value :any) :void {
@@ -298,6 +304,7 @@ export function all (values :readonly any[]) :Public {
 	var _value :any[] = [];
 	var count :number = 0;
 	function _onrejected (error :any) :void { THIS._status===PENDING && r(THIS, error, REJECTED); }
+	var counted :boolean | undefined;
 	try {
 		for ( var length :number = values.length, index :number = 0; index<length; ++index ) {
 			var value :any = values[index];
@@ -314,8 +321,7 @@ export function all (values :readonly any[]) :Public {
 							return function (value :any) :void {
 								if ( THIS._status===PENDING ) {
 									_value[index] = value;
-									if ( count>1 ) { --count; }
-									else { r(THIS, _value, FULFILLED); }
+									if ( !--count && counted ) { r(THIS, _value, FULFILLED); }
 								}
 							};
 						}(index),
@@ -340,8 +346,7 @@ export function all (values :readonly any[]) :Public {
 							red = true;
 							if ( THIS._status===PENDING ) {
 								_value[index] = value;
-								if ( count>1 ) { --count; }
-								else { r(THIS, _value, FULFILLED); }
+								if ( !--count && counted ) { r(THIS, _value, FULFILLED); }
 							}
 						};
 					}(index),
@@ -350,8 +355,20 @@ export function all (values :readonly any[]) :Public {
 			}
 			else { _value[index] = value; }
 		}
+		counted = true;
+		if ( !count && THIS._status===PENDING ) {
+			THIS._value = _value;
+			THIS._status = FULFILLED;
+			THIS._on = null;
+		}
 	}
-	catch (error) { if ( THIS._status===PENDING ) { r(THIS, error, REJECTED); } }
+	catch (error) {
+		if ( THIS._status===PENDING ) {
+			THIS._value = error;
+			THIS._status = REJECTED;
+			THIS._on = null;
+		}
+	}
 	return THIS;
 }
 
@@ -390,7 +407,13 @@ export function race (values :readonly any[]) :Public {
 			}
 		}
 	}
-	catch (error) { if ( THIS._status===PENDING ) { r(THIS, error, REJECTED); } }
+	catch (error) {
+		if ( THIS._status===PENDING ) {
+			THIS._value = error;
+			THIS._status = REJECTED;
+			THIS._on = null;
+		}
+	}
 	return THIS;
 }
 

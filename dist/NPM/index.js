@@ -1,6 +1,6 @@
 ﻿'use strict';
 
-var version = '1.0.2';
+var version = '1.0.3';
 
 var freeze = Object.freeze;
 
@@ -307,7 +307,9 @@ var Public = function Thenable(executor) {
     }
     catch (error) {
         if (THIS._status === PENDING) {
-            r(THIS, error, REJECTED);
+            THIS._value = error;
+            THIS._status = REJECTED;
+            THIS._on = null;
         }
     }
 };
@@ -411,6 +413,7 @@ function all(values) {
     var _value = [];
     var count = 0;
     function _onrejected(error) { THIS._status === PENDING && r(THIS, error, REJECTED); }
+    var counted;
     try {
         for (var length = values.length, index = 0; index < length; ++index) {
             var value = values[index];
@@ -427,10 +430,7 @@ function all(values) {
                             return function (value) {
                                 if (THIS._status === PENDING) {
                                     _value[index] = value;
-                                    if (count > 1) {
-                                        --count;
-                                    }
-                                    else {
+                                    if (!--count && counted) {
                                         r(THIS, _value, FULFILLED);
                                     }
                                 }
@@ -460,10 +460,7 @@ function all(values) {
                         red = true;
                         if (THIS._status === PENDING) {
                             _value[index] = value;
-                            if (count > 1) {
-                                --count;
-                            }
-                            else {
+                            if (!--count && counted) {
                                 r(THIS, _value, FULFILLED);
                             }
                         }
@@ -474,10 +471,18 @@ function all(values) {
                 _value[index] = value;
             }
         }
+        counted = true;
+        if (!count && THIS._status === PENDING) {
+            THIS._value = _value;
+            THIS._status = FULFILLED;
+            THIS._on = null;
+        }
     }
     catch (error) {
         if (THIS._status === PENDING) {
-            r(THIS, error, REJECTED);
+            THIS._value = error;
+            THIS._status = REJECTED;
+            THIS._on = null;
         }
     }
     return THIS;
@@ -523,7 +528,9 @@ function race(values) {
     }
     catch (error) {
         if (THIS._status === PENDING) {
-            r(THIS, error, REJECTED);
+            THIS._value = error;
+            THIS._status = REJECTED;
+            THIS._on = null;
         }
     }
     return THIS;
