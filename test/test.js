@@ -37,25 +37,25 @@ module.exports = require('@ltd/j-dev')(__dirname+'/..')(async function ({ import
 	log(6);
 	
 	Thenable.race([
-		{ then (onfulfilled) { setTimeout(function () { onfulfilled(1); }, 0); } },
-		{ then (onfulfilled) { onfulfilled(2); } },
-		{ then (onfulfilled) { onfulfilled(3); } },
+		new Thenable(function executor (resolve) { setTimeout(function () { resolve(1); }, 0); }),
+		new Thenable(function executor (resolve) { resolve(2); }),
+		new Thenable(function executor (resolve) { resolve(3); }),
 	]).then(function onfulfilled (value) {
 		if ( value!==2 ) { e = e || Error(`got value ${value} when 2 is expected`); }
 	});
 	
 	Thenable.all([
-		{ then (onfulfilled) { onfulfilled(1); } },
-		{ then (onfulfilled, onrejected) { onrejected(2) } },
-		{ then (onfulfilled) { onfulfilled(3); } },
+		new Thenable(function executor (resolve) { resolve(1); }),
+		new Thenable(function executor (resolve, reject) { reject(2); }),
+		new Thenable(function executor (resolve) { resolve(3); }),
 	]).then('ignore', function onrejected (error) {
 		if ( error!==2 ) { e = e || Error(`got error ${error} when 2 is expected`); }
 	});
 	
 	Thenable.all([
-		{ then (onfulfilled) { log(7); onfulfilled(1); log(8); } },
-		{ then (onfulfilled) { log(9); onfulfilled(2); log(10); } },
-		{ then (onfulfilled) { log(11); onfulfilled(3); log(12); } },
+		new Thenable(function executor (resolve) { log(7); resolve(1); log(8); }),
+		new Thenable(function executor (resolve) { log(9); resolve(2); log(10); }),
+		new Thenable(function executor (resolve) { log(11); resolve(3); log(12); }),
 	]).then(function onfulfilled (values) {
 		if ( ''+values!=='1,2,3' ) { e = e || Error(`got values ${values} when 1,2,3 is expected`); }
 		log(13);

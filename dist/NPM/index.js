@@ -4,27 +4,37 @@ var seal = Object.seal;
 
 var freeze = Object.freeze;
 
-var version = '3.0.0';
+var version = '4.0.0';
 
 var undefined$1 = void 0;
 
 var PENDING = 0;
 var FULFILLED = 1;
 var REJECTED = 2;
+var THENABLE = 1;
+var PROMISE = 2;
 var Private = function Thenable() { };
-function isPrivate(value) {
+function isThenable(value) {
     return value instanceof Private;
 }
-function isPublic(value) {
-    return value != null && typeof value.then === 'function';
-}
+var Type = typeof Promise === 'function'
+    ? function () {
+        var Native = function () { };
+        Native.prototype = Promise.prototype;
+        return function Type(value) {
+            return isThenable(value) ? THENABLE : value instanceof Native ? PROMISE : 0;
+        };
+    }()
+    : function Type(value) {
+        return isThenable(value) ? THENABLE : 0;
+    };
 var stack = null;
-function r(thenable, value, status) {
+function flow(thenable, value, status) {
     if (stack) {
         stack = { nextStack: stack, thenable: thenable, value: value, status: status };
         return;
     }
-    for (;;) {
+    for (var type, _status;;) {
         stack: {
             if (status === FULFILLED) {
                 if (thenable._onrejected) {
@@ -34,11 +44,11 @@ function r(thenable, value, status) {
                 if (_onfulfilled) {
                     thenable._onfulfilled = undefined$1;
                     try {
-                        value = _onfulfilled(value);
-                        if (isPrivate(value)) {
-                            var _status = value._status;
+                        type = Type(value = _onfulfilled(value));
+                        if (type === THENABLE) {
+                            _status = value._status;
                             if (_status === PENDING) {
-                                value._on.push(thenable);
+                                value._dependents.push(thenable);
                                 break stack;
                             }
                             else {
@@ -46,8 +56,8 @@ function r(thenable, value, status) {
                                 status = _status;
                             }
                         }
-                        else if (isPublic(value)) {
-                            wait(thenable, value);
+                        else if (type === PROMISE) {
+                            depend(thenable, value);
                             break stack;
                         }
                     }
@@ -68,11 +78,11 @@ function r(thenable, value, status) {
                 if (_onrejected) {
                     thenable._onrejected = undefined$1;
                     try {
-                        value = _onrejected(value);
-                        if (isPrivate(value)) {
-                            var _status = value._status;
+                        type = Type(value = _onrejected(value));
+                        if (type === THENABLE) {
+                            _status = value._status;
                             if (_status === PENDING) {
-                                value._on.push(thenable);
+                                value._dependents.push(thenable);
                                 break stack;
                             }
                             else {
@@ -80,8 +90,8 @@ function r(thenable, value, status) {
                                 status = _status;
                             }
                         }
-                        else if (isPublic(value)) {
-                            wait(thenable, value);
+                        else if (type === PROMISE) {
+                            depend(thenable, value);
                             break stack;
                         }
                         else {
@@ -98,11 +108,11 @@ function r(thenable, value, status) {
             }
             thenable._value = value;
             thenable._status = status;
-            var _on = thenable._on;
-            if (_on) {
-                thenable._on = null;
-                for (var index = _on.length; index;) {
-                    stack = { nextStack: stack, thenable: _on[--index], value: value, status: status };
+            var _dependents = thenable._dependents;
+            if (_dependents) {
+                thenable._dependents = null;
+                for (var index = _dependents.length; index;) {
+                    stack = { nextStack: stack, thenable: _dependents[--index], value: value, status: status };
                 }
             }
         }
@@ -115,37 +125,42 @@ function r(thenable, value, status) {
         stack = stack.nextStack;
     }
 }
-function wait(thenable, value) {
+function depend(thenable, value) {
     var red;
     value.then(function onfulfilled(value) {
         if (red) {
             return;
         }
         red = true;
-        r(thenable, value, FULFILLED);
+        flow(thenable, value, FULFILLED);
     }, function onrejected(error) {
         if (red) {
             return;
         }
         red = true;
-        r(thenable, error, REJECTED);
+        flow(thenable, error, REJECTED);
     });
 }
 
 function resolve(value) {
-    if (isPrivate(value)) {
+    var type = Type(value);
+    if (type === THENABLE) {
         return value;
     }
     var THIS = new Private;
+    if (type === PROMISE) {
+        THIS._dependents = [];
+        try_depend(THIS, value);
+    }
+    else {
+        THIS._value = value;
+        THIS._status = FULFILLED;
+    }
+    return THIS;
+}
+function try_depend(THIS, value) {
     try {
-        if (isPublic(value)) {
-            THIS._on = [];
-            wait(THIS, value);
-        }
-        else {
-            THIS._value = value;
-            THIS._status = FULFILLED;
-        }
+        depend(THIS, value);
     }
     catch (error) {
         if (THIS._status === PENDING) {
@@ -153,7 +168,6 @@ function resolve(value) {
             THIS._status = REJECTED;
         }
     }
-    return THIS;
 }
 
 function reject(error) {
@@ -172,34 +186,35 @@ function all(values) {
         if (THIS._status === PENDING) {
             THIS._value = error;
             THIS._status = REJECTED;
-            THIS._on = null;
+            THIS._dependents = null;
         }
     }
     return THIS;
 }
 function all_try(values, THIS) {
-    THIS._on = [];
-    function _onrejected(error) { THIS._status === PENDING && r(THIS, error, REJECTED); }
+    THIS._dependents = [];
+    function _onrejected(error) { THIS._status === PENDING && flow(THIS, error, REJECTED); }
     var _value = [];
     var count = 0;
     var counted;
     for (var length = values.length, index = 0; index < length; ++index) {
         var value = values[index];
-        if (isPrivate(value)) {
+        var type = Type(value);
+        if (type === THENABLE) {
             var _status = value._status;
             if (_status === PENDING) {
                 ++count;
                 _value[index] = undefined$1;
-                value._on.push({
+                value._dependents.push({
                     _status: 0,
                     _value: undefined$1,
-                    _on: null,
+                    _dependents: null,
                     _onfulfilled: function (index) {
                         return function (value) {
                             if (THIS._status === PENDING) {
                                 _value[index] = value;
                                 if (!--count && counted) {
-                                    r(THIS, _value, FULFILLED);
+                                    flow(THIS, _value, FULFILLED);
                                 }
                             }
                         };
@@ -216,7 +231,7 @@ function all_try(values, THIS) {
                 _value[index] = value._value;
             }
         }
-        else if (isPublic(value)) {
+        else if (type === PROMISE) {
             ++count;
             _value[index] = undefined$1;
             value.then(function (index) {
@@ -229,7 +244,7 @@ function all_try(values, THIS) {
                     if (THIS._status === PENDING) {
                         _value[index] = value;
                         if (!--count && counted) {
-                            r(THIS, _value, FULFILLED);
+                            flow(THIS, _value, FULFILLED);
                         }
                     }
                 };
@@ -243,7 +258,7 @@ function all_try(values, THIS) {
     if (!count && THIS._status === PENDING) {
         THIS._value = _value;
         THIS._status = FULFILLED;
-        THIS._on = null;
+        THIS._dependents = null;
     }
 }
 
@@ -256,28 +271,29 @@ function race(values) {
         if (THIS._status === PENDING) {
             THIS._value = error;
             THIS._status = REJECTED;
-            THIS._on = null;
+            THIS._dependents = null;
         }
     }
     return THIS;
 }
 function race_try(values, THIS) {
-    THIS._on = [];
-    function _onfulfilled(value) { THIS._status === PENDING && r(THIS, value, FULFILLED); }
-    function _onrejected(error) { THIS._status === PENDING && r(THIS, error, REJECTED); }
+    THIS._dependents = [];
+    function _onfulfilled(value) { THIS._status === PENDING && flow(THIS, value, FULFILLED); }
+    function _onrejected(error) { THIS._status === PENDING && flow(THIS, error, REJECTED); }
     var that = {
         _status: 0,
         _value: undefined$1,
-        _on: null,
+        _dependents: null,
         _onfulfilled: _onfulfilled,
         _onrejected: _onrejected
     };
     for (var length = values.length, index = 0; index < length; ++index) {
         var value = values[index];
-        if (isPrivate(value)) {
+        var type = Type(value);
+        if (type === THENABLE) {
             var _status = value._status;
             if (_status === PENDING) {
-                value._on.push(that);
+                value._dependents.push(that);
             }
             else {
                 THIS._value = value._value;
@@ -285,7 +301,7 @@ function race_try(values, THIS) {
                 break;
             }
         }
-        else if (isPublic(value)) {
+        else if (type === PROMISE) {
             value.then(_onfulfilled, _onrejected);
             if (THIS._status !== PENDING) {
                 break;
@@ -298,6 +314,27 @@ function race_try(values, THIS) {
         }
     }
 }
+
+function pend(callbackfn) {
+    var THIS = new Private;
+    THIS._dependents = [];
+    THIS._Value = callbackfn;
+    return THIS;
+}
+
+var AWAIT = {
+    await: function (value) {
+        if (isThenable(value)) {
+            switch (value._status) {
+                case FULFILLED:
+                    return value._value;
+                case REJECTED:
+                    throw value._value;
+            }
+        }
+        return value;
+    }
+}.await;
 
 var Public = function Thenable(executor) {
     if (typeof executor !== 'function') {
@@ -316,25 +353,26 @@ var Public = function Thenable(executor) {
             red = true;
             if (executed) {
                 try {
-                    if (isPrivate(value)) {
+                    var type = Type(value);
+                    if (type === THENABLE) {
                         _status = value._status;
                         if (_status === PENDING) {
-                            value._on.push(THIS);
+                            value._dependents.push(THIS);
                         }
                         else {
-                            r(THIS, value._value, _status);
+                            flow(THIS, value._value, _status);
                         }
                     }
-                    else if (isPublic(value)) {
-                        wait(THIS, value);
+                    else if (type === PROMISE) {
+                        depend(THIS, value);
                     }
                     else {
-                        r(THIS, value, FULFILLED);
+                        flow(THIS, value, FULFILLED);
                     }
                 }
                 catch (error) {
                     if (THIS._status === PENDING) {
-                        r(THIS, error, REJECTED);
+                        flow(THIS, error, REJECTED);
                     }
                 }
             }
@@ -348,7 +386,7 @@ var Public = function Thenable(executor) {
             }
             red = true;
             if (executed) {
-                r(THIS, error, REJECTED);
+                flow(THIS, error, REJECTED);
             }
             else {
                 _value = error;
@@ -357,7 +395,7 @@ var Public = function Thenable(executor) {
         });
         if (!red) {
             executed = true;
-            THIS._on = [];
+            THIS._dependents = [];
             return;
         }
     }
@@ -376,17 +414,18 @@ var Public = function Thenable(executor) {
         if (THIS._status === PENDING) {
             THIS._value = error;
             THIS._status = REJECTED;
-            THIS._on = null;
+            THIS._dependents = null;
         }
     }
 };
 function rEd(THIS, _status, _value) {
     if (_status === FULFILLED) {
-        if (isPrivate(_value)) {
+        var type = Type(_value);
+        if (type === THENABLE) {
             _status = _value._status;
             if (_status === PENDING) {
-                THIS._on = [];
-                _value._on.push(THIS);
+                THIS._dependents = [];
+                _value._dependents.push(THIS);
             }
             else {
                 THIS._value = _value._value;
@@ -394,9 +433,9 @@ function rEd(THIS, _status, _value) {
             }
             return;
         }
-        if (isPublic(_value)) {
-            THIS._on = [];
-            wait(THIS, _value);
+        if (type === PROMISE) {
+            THIS._dependents = [];
+            depend(THIS, _value);
             return;
         }
     }
@@ -404,36 +443,57 @@ function rEd(THIS, _status, _value) {
     THIS._status = _status;
 }
 
-function then(onfulfilled, onrejected) {
-    var THIS = this;
-    var thenable = new Private;
-    switch (THIS._status) {
-        case PENDING:
-            thenable._on = [];
-            thenable._onfulfilled = onfulfilled;
-            thenable._onrejected = onrejected;
-            THIS._on.push(thenable);
-            return thenable;
-        case FULFILLED:
-            if (typeof onfulfilled === 'function') {
-                onto(THIS, onfulfilled, thenable);
-            }
-            else {
-                thenable._value = THIS._value;
-                thenable._status = FULFILLED;
-            }
-            return thenable;
-        case REJECTED:
-            if (typeof onrejected === 'function') {
-                onto(THIS, onrejected, thenable);
-            }
-            else {
-                thenable._value = THIS._value;
-                thenable._status = REJECTED;
-            }
-            return thenable;
+var prototype = {
+    _status: PENDING,
+    _value: undefined$1,
+    _dependents: null,
+    _onfulfilled: undefined$1,
+    _onrejected: undefined$1,
+    _Value: undefined$1,
+    then: function then(onfulfilled, onrejected) {
+        var THIS = this;
+        var callbackfn = THIS._Value;
+        if (callbackfn) {
+            THIS._Value = undefined$1;
+            callbackAs(callbackfn, THIS);
+        }
+        var thenable = new Private;
+        switch (THIS._status) {
+            case PENDING:
+                thenable._dependents = [];
+                thenable._onfulfilled = onfulfilled;
+                thenable._onrejected = onrejected;
+                THIS._dependents.push(thenable);
+                return thenable;
+            case FULFILLED:
+                if (typeof onfulfilled === 'function') {
+                    onto(THIS, onfulfilled, thenable);
+                }
+                else {
+                    thenable._value = THIS._value;
+                    thenable._status = FULFILLED;
+                }
+                return thenable;
+            case REJECTED:
+                if (typeof onrejected === 'function') {
+                    onto(THIS, onrejected, thenable);
+                }
+                else {
+                    thenable._value = THIS._value;
+                    thenable._status = REJECTED;
+                }
+                return thenable;
+        }
+        throw TypeError('Method Thenable.prototype.then called on incompatible receiver');
     }
-    throw TypeError('Method Thenable.prototype.then called on incompatible receiver');
+};
+function callbackAs(callbackfn, THIS) {
+    try {
+        flow(THIS, callbackfn(), FULFILLED);
+    }
+    catch (error) {
+        flow(THIS, error, REJECTED);
+    }
 }
 function onto(THIS, on, thenable) {
     try {
@@ -447,35 +507,27 @@ function onto(THIS, on, thenable) {
     }
 }
 function onto_try(thenable, value) {
-    if (isPrivate(value)) {
+    var type = Type(value);
+    if (type === THENABLE) {
         var status = value._status;
         if (status === PENDING) {
-            thenable._on = [];
-            value._on.push(thenable);
+            thenable._dependents = [];
+            value._dependents.push(thenable);
         }
         else {
             thenable._value = value._value;
             thenable._status = status;
         }
     }
-    else if (isPublic(value)) {
-        thenable._on = [];
-        wait(thenable, value);
+    else if (value === PROMISE) {
+        thenable._dependents = [];
+        depend(thenable, value);
     }
     else {
         thenable._value = value;
         thenable._status = FULFILLED;
     }
 }
-
-var prototype = {
-    _status: PENDING,
-    _value: undefined$1,
-    _on: null,
-    _onfulfilled: undefined$1,
-    _onrejected: undefined$1,
-    then: then
-};
 
 var create = Object.create || (
 	/*! j-globals: Object.create (polyfill) */
@@ -570,7 +622,9 @@ var _export = Default(Public, {
     resolve: resolve,
     reject: reject,
     all: all,
-    race: race
+    race: race,
+    pend: pend,
+    await: AWAIT
 });
 
 module.exports = _export;

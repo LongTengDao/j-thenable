@@ -1,6 +1,6 @@
 import undefined from '.undefined';
 
-import { r, PENDING, FULFILLED, REJECTED, Status, isPrivate, isPublic, Private } from './_';
+import { flow, PENDING, FULFILLED, REJECTED, Status, Type, THENABLE, PROMISE, Type, Private } from './_';
 
 export default function race (values :readonly any[]) :Public {
 	var THIS :Private = new Private;
@@ -9,35 +9,36 @@ export default function race (values :readonly any[]) :Public {
 		if ( THIS._status===PENDING ) {
 			THIS._value = error;
 			THIS._status = REJECTED;
-			THIS._on = null;
+			THIS._dependents = null;
 		}
 	}
 	return THIS;
 };
 
 function race_try (values :readonly any[], THIS :Private) :void {
-	THIS._on = [];
-	function _onfulfilled (value :any) :void { THIS._status===PENDING && r(THIS, value, FULFILLED); }
-	function _onrejected (error :any) :void { THIS._status===PENDING && r(THIS, error, REJECTED); }
+	THIS._dependents = [];
+	function _onfulfilled (value :any) :any { THIS._status===PENDING && flow(THIS, value, FULFILLED); }
+	function _onrejected (error :any) :any { THIS._status===PENDING && flow(THIS, error, REJECTED); }
 	var that :Private = {
 		_status: 0,
 		_value: undefined,
-		_on: null,
+		_dependents: null,
 		_onfulfilled: _onfulfilled,
 		_onrejected: _onrejected
 	} as Private;
 	for ( var length :number = values.length, index :number = 0; index<length; ++index ) {
 		var value :any = values[index];
-		if ( isPrivate(value) ) {
+		var type :Type = Type(value);
+		if ( type===THENABLE ) {
 			var _status :Status = value._status;
-			if ( _status===PENDING ) { value._on!.push(that); }
+			if ( _status===PENDING ) { value._dependents!.push(that); }
 			else {
 				THIS._value = value._value;
 				THIS._status = _status;
 				break;
 			}
 		}
-		else if ( isPublic(value) ) {
+		else if ( type===PROMISE ) {
 			value.then(_onfulfilled, _onrejected);
 			if ( THIS._status!==PENDING ) { break; }
 		}

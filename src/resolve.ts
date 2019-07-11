@@ -1,25 +1,28 @@
-import { isPrivate, isPublic, wait, FULFILLED, REJECTED, PENDING, Private } from './_';
+import { Type, THENABLE, PROMISE, Type, depend, FULFILLED, REJECTED, PENDING, Private } from './_';
 
-export default function resolve (value :any) :Public {
-	if ( isPrivate(value) ) { return value; }
+export default function resolve (value? :any) :Public {
+	var type :Type = Type(value);
+	if ( type===THENABLE ) { return value; }
 	var THIS :Private = new Private;
-	try {
-		if ( isPublic(value) ) {
-			THIS._on = [];
-			wait(THIS, value);
-		}
-		else {
-			THIS._value = value;
-			THIS._status = FULFILLED;
-		}
+	if ( type===PROMISE ) {
+		THIS._dependents = [];
+		try_depend(THIS, value);
 	}
+	else {
+		THIS._value = value;
+		THIS._status = FULFILLED;
+	}
+	return THIS;
+};
+
+function try_depend (THIS :Private, value :any) {
+	try { depend(THIS, value); }
 	catch (error) {
 		if ( THIS._status===PENDING ) {
 			THIS._value = error;
 			THIS._status = REJECTED;
 		}
 	}
-	return THIS;
-};
+}
 
 import Public from './Thenable';

@@ -6,10 +6,12 @@ declare class exports {
 	then (this :exports, onfulfilled? :(value :any) => void, onrejected? :(value :any) => void) :exports
 	
 	static version :string;
-	static resolve (value :any) :exports
-	static reject (error :any) :exports
 	static all (values :readonly any[]) :exports
 	static race (values :readonly any[]) :exports
+	static resolve (value? :any) :exports
+	static reject (error? :any) :exports
+	static pend (callbackfn :() => any) :exports
+	static await (value :any) :any
 	
 }
 

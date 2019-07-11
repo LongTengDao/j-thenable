@@ -1,6 +1,6 @@
 import undefined from '.undefined';
 
-import { PENDING, REJECTED, FULFILLED, r, isPrivate, isPublic, Status, Function, Private } from './_';
+import { PENDING, REJECTED, FULFILLED, flow, Type, THENABLE, PROMISE, Type, Status, Private, Onfulfilled } from './_';
 
 export default function all (values :readonly any[]) :Public {
 	var THIS :Private = new Private;
@@ -9,34 +9,35 @@ export default function all (values :readonly any[]) :Public {
 		if ( THIS._status===PENDING ) {
 			THIS._value = error;
 			THIS._status = REJECTED;
-			THIS._on = null;
+			THIS._dependents = null;
 		}
 	}
 	return THIS;
 };
 
 function all_try (values :readonly any[], THIS :Private) :void {
-	THIS._on = [];
-	function _onrejected (error :any) :void { THIS._status===PENDING && r(THIS, error, REJECTED); }
+	THIS._dependents = [];
+	function _onrejected (error :any) :any { THIS._status===PENDING && flow(THIS, error, REJECTED); }
 	var _value :any[] = [];
 	var count :number = 0;
 	var counted :boolean | undefined;
 	for ( var length :number = values.length, index :number = 0; index<length; ++index ) {
 		var value :any = values[index];
-		if ( isPrivate(value) ) {
+		var type :Type = Type(value);
+		if ( type===THENABLE ) {
 			var _status :Status = value._status;
 			if ( _status===PENDING ) {
 				++count;
 				_value[index] = undefined;
-				value._on!.push({
+				value._dependents!.push({
 					_status: 0,
 					_value: undefined,
-					_on: null,
-					_onfulfilled: function (index :number) :Function {
+					_dependents: null,
+					_onfulfilled: function (index :number) :Onfulfilled {
 						return function (value :any) :void {
 							if ( THIS._status===PENDING ) {
 								_value[index] = value;
-								if ( !--count && counted ) { r(THIS, _value, FULFILLED); }
+								if ( !--count && counted ) { flow(THIS, _value, FULFILLED); }
 							}
 						};
 					}(index),
@@ -50,18 +51,18 @@ function all_try (values :readonly any[], THIS :Private) :void {
 			}
 			else { _value[index] = value._value; }
 		}
-		else if ( isPublic(value) ) {
+		else if ( type===PROMISE ) {
 			++count;
 			_value[index] = undefined;
 			value.then(
-				function (index :number) :Function {
+				function (index :number) :Onfulfilled {
 					var red :boolean | undefined;
 					return function (value :any) :void {
 						if ( red ) { return; }
 						red = true;
 						if ( THIS._status===PENDING ) {
 							_value[index] = value;
-							if ( !--count && counted ) { r(THIS, _value, FULFILLED); }
+							if ( !--count && counted ) { flow(THIS, _value, FULFILLED); }
 						}
 					};
 				}(index),
@@ -74,7 +75,7 @@ function all_try (values :readonly any[], THIS :Private) :void {
 	if ( !count && THIS._status===PENDING ) {
 		THIS._value = _value;
 		THIS._status = FULFILLED;
-		THIS._on = null;
+		THIS._dependents = null;
 	}
 }
 

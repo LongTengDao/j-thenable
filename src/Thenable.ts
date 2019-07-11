@@ -1,11 +1,11 @@
 import TypeError from '.TypeError';
 
-import { Status, PENDING, FULFILLED, REJECTED, isPrivate, isPublic, r, wait, Function, Private, Executor } from './_';
+import { Status, PENDING, FULFILLED, REJECTED, Type, THENABLE, PROMISE, Type, flow, depend, Private, Executor, Onfulfilled, Onrejected } from './_';
 
 export { Public as default };
 
 type Public = Readonly<object & {
-	then (this :Public, onfulfilled? :Function, onrejected? :Function) :Public,
+	then (this :Public, onfulfilled? :Onfulfilled, onrejected? :Onrejected) :Public,
 }>;
 
 var Public :{ new (executor :Executor) :Public } = function Thenable (this :Private, executor :Executor) :void {
@@ -22,15 +22,16 @@ var Public :{ new (executor :Executor) :Public } = function Thenable (this :Priv
 				red = true;
 				if ( executed ) {
 					try {
-						if ( isPrivate(value) ) {
+						var type :Type = Type(value);
+						if ( type===THENABLE ) {
 							_status = value._status;
-							if ( _status===PENDING ) { value._on!.push(THIS); }
-							else { r(THIS, value._value, _status!); }
+							if ( _status===PENDING ) { value._dependents!.push(THIS); }
+							else { flow(THIS, value._value, _status!); }
 						}
-						else if ( isPublic(value) ) { wait(THIS, value); }
-						else { r(THIS, value, FULFILLED); }
+						else if ( type===PROMISE ) { depend(THIS, value); }
+						else { flow(THIS, value, FULFILLED); }
 					}
-					catch (error) { if ( THIS._status===PENDING ) { r(THIS, error, REJECTED); } }
+					catch (error) { if ( THIS._status===PENDING ) { flow(THIS, error, REJECTED); } }
 				}
 				else {
 					_value = value;
@@ -40,7 +41,7 @@ var Public :{ new (executor :Executor) :Public } = function Thenable (this :Priv
 			function reject (error :any) {
 				if ( red ) { return; }
 				red = true;
-				if ( executed ) { r(THIS, error, REJECTED); }
+				if ( executed ) { flow(THIS, error, REJECTED); }
 				else {
 					_value = error;
 					_status = REJECTED;
@@ -49,7 +50,7 @@ var Public :{ new (executor :Executor) :Public } = function Thenable (this :Priv
 		);
 		if ( !red ) {
 			executed = true;
-			THIS._on = [];
+			THIS._dependents = [];
 			return;
 		}
 	}
@@ -66,18 +67,19 @@ var Public :{ new (executor :Executor) :Public } = function Thenable (this :Priv
 		if ( THIS._status===PENDING ) {
 			THIS._value = error;
 			THIS._status = REJECTED;
-			THIS._on = null;
+			THIS._dependents = null;
 		}
 	}
 } as any;
 
 function rEd (THIS :Private, _status :Status | undefined, _value :any) :void {
 	if ( _status===FULFILLED ) {
-		if ( isPrivate(_value) ) {
+		var type :Type = Type(_value);
+		if ( type===THENABLE ) {
 			_status = _value._status;
 			if ( _status===PENDING ) {
-				THIS._on = [];
-				_value._on!.push(THIS);
+				THIS._dependents = [];
+				_value._dependents!.push(THIS);
 			}
 			else {
 				THIS._value = _value._value;
@@ -85,9 +87,9 @@ function rEd (THIS :Private, _status :Status | undefined, _value :any) :void {
 			}
 			return;
 		}
-		if ( isPublic(_value) ) {
-			THIS._on = [];
-			wait(THIS, _value);
+		if ( type===PROMISE ) {
+			THIS._dependents = [];
+			depend(THIS, _value);
 			return;
 		}
 	}

@@ -8,11 +8,15 @@ import resolve from './resolve';
 import reject from './reject';
 import all from './all';
 import race from './race';
+import pend from './pend';
+import AWAIT from './await';
 export {
 	resolve,
 	reject,
 	all,
 	race,
+	pend,
+	AWAIT as await,
 };
 
 import { Private, Executor } from './_';
@@ -27,7 +31,9 @@ export default Default(Public, {
 	resolve: resolve,
 	reject: reject,
 	all: all,
-	race: race
+	race: race,
+	pend: pend,
+	await: AWAIT
 });
 
 var Thenable :Readonly<{ new (executor :Executor) :Public }> = freeze ? /*#__PURE__*/ freeze(Public) : Public;
