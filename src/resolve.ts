@@ -1,10 +1,9 @@
-import { Type, THENABLE, PROMISE, Type, depend, FULFILLED, REJECTED, PENDING, Private } from './_';
+import { isThenable, beenPromise, depend, FULFILLED, REJECTED, PENDING, Private } from './_';
 
 export default function resolve (value? :any) :Public {
-	var type :Type = Type(value);
-	if ( type===THENABLE ) { return value; }
+	if ( isThenable(value) ) { return value; }
 	var THIS :Private = new Private;
-	if ( type===PROMISE ) {
+	if ( beenPromise(value) ) {
 		THIS._dependents = [];
 		try_depend(THIS, value);
 	}

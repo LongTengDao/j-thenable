@@ -6,16 +6,13 @@ declare module '.Object.freeze' { export default Object.freeze; }
 declare module '.Object.prototype.hasOwnProperty' { export default Object.prototype.hasOwnProperty; }
 declare module '.Object.seal' { export default Object.seal; }
 
-declare module '.Promise' { export default Promise;
-	export { default as all } from '.Promise.all';
-	export { default as race } from '.Promise.race';
-	export { default as reject } from '.Promise.reject';
-	export { default as resolve } from '.Promise.resolve';
+declare module '.Promise.prototype' { export default Promise.prototype;
+	export { default as then } from '.Promise.prototype.then';
 }
-declare module '.Promise.all' { export default Promise.all; }
-declare module '.Promise.race' { export default Promise.race; }
-declare module '.Promise.reject' { export default Promise.reject; }
-declare module '.Promise.resolve' { export default Promise.resolve; }
+declare module '.Promise.prototype.then' { export default Promise.prototype.then; }
+declare module '.Promise.prototype?' { export default Promise.prototype;
+	export { default as then } from '.Promise.prototype.then';
+}
 
 declare module '.Symbol.toStringTag?' { export default Symbol.toStringTag; }
 

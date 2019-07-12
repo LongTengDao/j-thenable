@@ -1,43 +1,93 @@
-import Promise from '.Promise';
+import Promise_prototype from '.Promise.prototype?';
 import undefined from '.undefined';
+
+export type Executor = (resolve? :(value :any) => void, reject? :(error :any) => void) => void;
+export type Onfulfilled = (value :any) => any;
+export type Onrejected = (error :any) => any;
+export type Status = 0 | 1 | 2;
+export type Private = {
+	_status :Status,
+	_value :any,
+	_dependents :Private[] | null,
+	_onfulfilled :Onfulfilled | undefined,
+	_onrejected :Onrejected | undefined,
+	_Value :( () => any ) | undefined,
+	then (this :Private, onfulfilled? :Onfulfilled, onrejected? :Onrejected) :Private,
+};
 
 export var PENDING :0 = 0;
 export var FULFILLED :1 = 1;
 export var REJECTED :2 = 2;
 
-export var THENABLE :1 = 1;
-export var PROMISE :2 = 2;
-
 export var Private :{ new () :Private } = function Thenable () {} as any;
 
-export function isThenable (value :any) :value is Private {
+var wasPromise :boolean = false;
+export function isThenableOnly (value :any) :value is Private {
 	return value instanceof Private;
 }
-
-export var Type :(value :any) => typeof value extends Private ? 1 : typeof value extends Promise<any> ? 2 : 0 =
-	
-	typeof Promise==='function'
-		
-		? function () {
-			var Native = function () {};
-			Native.prototype = Promise.prototype;
-			return function Type (value :any) :any {
-				return isThenable(value) ? THENABLE : value instanceof Native ? PROMISE : 0;
-			};
-		}()
-		
-		: function Type (value :any) :any {
-			return isThenable(value) ? THENABLE : 0;
+export var isThenable :(value :any) => value is Private = Promise_prototype
+	? function () {
+		var Promise = function () {};
+		Promise.prototype = Promise_prototype;
+		return function isThenable (value :any) :value is Private {
+			if ( value instanceof Private ) { return true; }
+			wasPromise = value instanceof Promise;
+			return false;
 		};
+	}()
+	: isThenableOnly;
+export function beenPromise (value :any) :value is Readonly<Promise<any>> { return wasPromise; }
 
-var stack :Stack | null = null;
-
-export function flow (thenable :Private, value :any, status :Status) :void {
-	if ( stack ) {
-		stack = { nextStack: stack, thenable: thenable, value: value, status: status };
+type PrependStack = { nextStack :PrependStack | null, thenable :Private, Value :() => any };
+var prependStack :PrependStack | null = null;
+var prepending :boolean = false;
+export function prepend (thenable :Private) :void {
+	var callbackfn :( () => any ) | undefined = thenable._Value;
+	if ( !callbackfn ) { return; }
+	thenable._Value = undefined;
+	if ( prepending ) {
+		prependStack = { nextStack: prependStack, thenable: thenable, Value: callbackfn };
 		return;
 	}
-	for ( var type :Type, _status :Status; ; ) {
+	prepending = true;
+	for ( ; ; ) {
+		try {
+			var value :any = callbackfn();
+			if ( isThenable(value) ) {
+				callbackfn = value._Value;
+				if ( callbackfn ) {
+					value._Value = undefined;
+					value._dependents!.push(thenable);
+					prependStack = { nextStack: prependStack, thenable: value, Value: callbackfn };
+				}
+				else {
+					var status :Status = value._status;
+					if ( status===PENDING ) { value._dependents!.push(thenable); }
+					else { flow(thenable, value._value, status); }
+				}
+			}
+			else if ( beenPromise(value) ) { depend(thenable, value); }
+			else { flow(thenable, value, FULFILLED); }
+		}
+		catch (error) { flow(thenable, error, REJECTED); }
+		if ( !prependStack ) { break; }
+		thenable = prependStack.thenable;
+		callbackfn = prependStack.Value;
+		prependStack = prependStack.nextStack;
+	}
+	prepending = false;
+}
+
+type FlowStack = { nextStack :FlowStack | null, thenable :Private, value :any, status :Status };
+var flowStack :FlowStack | null = null;
+var flowing :boolean = false;
+export function flow (thenable :Private, value :any, status :Status) :void {
+	if ( flowing ) {
+		flowStack = { nextStack: flowStack, thenable: thenable, value: value, status: status };
+		return;
+	}
+	flowing = true;
+	for ( var _status :Status; ; ) {
 		stack: {
 			if ( status===FULFILLED ) {
 				if ( thenable._onrejected ) { thenable._onrejected = undefined; }
@@ -45,8 +95,9 @@ export function flow (thenable :Private, value :any, status :Status) :void {
 				if ( _onfulfilled ) {
 					thenable._onfulfilled = undefined;
 					try {
-						type = Type(value = _onfulfilled(value));
-						if ( type===THENABLE ) {
+						value = _onfulfilled(value);
+						if ( isThenable(value) ) {
+							prepend(value);
 							_status = value._status;
 							if ( _status===PENDING ) {
 								value._dependents!.push(thenable);
@@ -57,7 +108,7 @@ export function flow (thenable :Private, value :any, status :Status) :void {
 								status = _status;
 							}
 						}
-						else if ( type===PROMISE ) {
+						else if ( beenPromise(value) ) {
 							depend(thenable, value);
 							break stack;
 						}
@@ -75,8 +126,9 @@ export function flow (thenable :Private, value :any, status :Status) :void {
 				if ( _onrejected ) {
 					thenable._onrejected = undefined;
 					try {
-						type = Type(value = _onrejected(value));
-						if ( type===THENABLE ) {
+						value = _onrejected(value);
+						if ( isThenable(value) ) {
+							prepend(value);
 							_status = value._status;
 							if ( _status===PENDING ) {
 								value._dependents!.push(thenable);
@@ -87,7 +139,7 @@ export function flow (thenable :Private, value :any, status :Status) :void {
 								status = _status;
 							}
 						}
-						else if ( type===PROMISE ) {
+						else if ( beenPromise(value) ) {
 							depend(thenable, value);
 							break stack;
 						}
@@ -105,16 +157,17 @@ export function flow (thenable :Private, value :any, status :Status) :void {
 			if ( _dependents ) {
 				thenable._dependents = null;
 				for ( var index :number = _dependents.length; index; ) {
-					stack = { nextStack: stack, thenable: _dependents[--index], value: value, status: status };
+					flowStack = { nextStack: flowStack, thenable: _dependents[--index], value: value, status: status };
 				}
 			}
 		}
-		if ( !stack ) { break; }
-		thenable = stack.thenable;
-		value = stack.value;
-		status = stack.status;
-		stack = stack.nextStack;
+		if ( !flowStack ) { break; }
+		thenable = flowStack.thenable;
+		value = flowStack.value;
+		status = flowStack.status;
+		flowStack = flowStack.nextStack;
 	}
+	flowing = false;
 }
 
 export function depend (thenable :Private, value :Readonly<{ then (...args :any[]) :any }>) :void {
@@ -132,25 +185,3 @@ export function depend (thenable :Private, value :Readonly<{ then (...args :any[
 		}
 	);
 }
-
-type Stack = { nextStack :Stack | null, thenable :Private, value :any, status :Status };
-
-export type Private = {
-	_status :Status,
-	_value :any,
-	_dependents :Private[] | null,
-	_onfulfilled :Onfulfilled | undefined,
-	_onrejected :Onrejected | undefined,
-	_Value :( () => any ) | undefined,
-	then (this :Private, onfulfilled? :Onfulfilled, onrejected? :Onrejected) :Private,
-};
-
-export type Onfulfilled = (value :any) => any;
-
-export type Onrejected = (error :any) => any;
-
-export type Status = 0 | 1 | 2;
-
-export type Type = 0 | 1 | 2;
-
-export type Executor = (resolve? :(value :any) => void, reject? :(error :any) => void) => void;

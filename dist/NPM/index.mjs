@@ -2,7 +2,7 @@
  * 模块名称：j-thenable
  * 模块功能：模仿 Promise API 的同步防爆栈工具。从属于“简计划”。
    　　　　　Sync stack anti-overflow util which's API is like Promise. Belong to "Plan J".
- * 模块版本：4.0.0
+ * 模块版本：4.0.1
  * 许可条款：LGPL-3.0
  * 所属作者：龙腾道 <LongTengDao@LongTengDao.com> (www.LongTengDao.com)
  * 问题反馈：https://GitHub.com/LongTengDao/j-thenable/issues
@@ -13,37 +13,95 @@ var seal = Object.seal;
 
 var freeze = Object.freeze;
 
-var version = '4.0.0';
+var version = '4.0.1';
+
+var Promise_prototype = typeof Promise!=='undefined' ? Promise.prototype : undefined;
 
 var undefined$1 = void 0;
 
 var PENDING = 0;
 var FULFILLED = 1;
 var REJECTED = 2;
-var THENABLE = 1;
-var PROMISE = 2;
 var Private = function Thenable() { };
-function isThenable(value) {
+var wasPromise = false;
+function isThenableOnly(value) {
     return value instanceof Private;
 }
-var Type = typeof Promise === 'function'
+var isThenable = Promise_prototype
     ? function () {
-        var Native = function () { };
-        Native.prototype = Promise.prototype;
-        return function Type(value) {
-            return isThenable(value) ? THENABLE : value instanceof Native ? PROMISE : 0;
+        var Promise = function () { };
+        Promise.prototype = Promise_prototype;
+        return function isThenable(value) {
+            if (value instanceof Private) {
+                return true;
+            }
+            wasPromise = value instanceof Promise;
+            return false;
         };
     }()
-    : function Type(value) {
-        return isThenable(value) ? THENABLE : 0;
-    };
-var stack = null;
-function flow(thenable, value, status) {
-    if (stack) {
-        stack = { nextStack: stack, thenable: thenable, value: value, status: status };
+    : isThenableOnly;
+function beenPromise(value) { return wasPromise; }
+var prependStack = null;
+var prepending = false;
+function prepend(thenable) {
+    var callbackfn = thenable._Value;
+    if (!callbackfn) {
         return;
     }
-    for (var type, _status;;) {
+    thenable._Value = undefined$1;
+    if (prepending) {
+        prependStack = { nextStack: prependStack, thenable: thenable, Value: callbackfn };
+        return;
+    }
+    prepending = true;
+    for (;;) {
+        try {
+            var value = callbackfn();
+            if (isThenable(value)) {
+                callbackfn = value._Value;
+                if (callbackfn) {
+                    value._Value = undefined$1;
+                    value._dependents.push(thenable);
+                    prependStack = { nextStack: prependStack, thenable: value, Value: callbackfn };
+                }
+                else {
+                    var status = value._status;
+                    if (status === PENDING) {
+                        value._dependents.push(thenable);
+                    }
+                    else {
+                        flow(thenable, value._value, status);
+                    }
+                }
+            }
+            else if (beenPromise(value)) {
+                depend(thenable, value);
+            }
+            else {
+                flow(thenable, value, FULFILLED);
+            }
+        }
+        catch (error) {
+            flow(thenable, error, REJECTED);
+        }
+        if (!prependStack) {
+            break;
+        }
+        thenable = prependStack.thenable;
+        callbackfn = prependStack.Value;
+        prependStack = prependStack.nextStack;
+    }
+    prepending = false;
+}
+var flowStack = null;
+var flowing = false;
+function flow(thenable, value, status) {
+    if (flowing) {
+        flowStack = { nextStack: flowStack, thenable: thenable, value: value, status: status };
+        return;
+    }
+    flowing = true;
+    for (var _status;;) {
         stack: {
             if (status === FULFILLED) {
                 if (thenable._onrejected) {
@@ -53,8 +111,9 @@ function flow(thenable, value, status) {
                 if (_onfulfilled) {
                     thenable._onfulfilled = undefined$1;
                     try {
-                        type = Type(value = _onfulfilled(value));
-                        if (type === THENABLE) {
+                        value = _onfulfilled(value);
+                        if (isThenable(value)) {
+                            prepend(value);
                             _status = value._status;
                             if (_status === PENDING) {
                                 value._dependents.push(thenable);
@@ -65,7 +124,7 @@ function flow(thenable, value, status) {
                                 status = _status;
                             }
                         }
-                        else if (type === PROMISE) {
+                        else if (beenPromise(value)) {
                             depend(thenable, value);
                             break stack;
                         }
@@ -87,8 +146,9 @@ function flow(thenable, value, status) {
                 if (_onrejected) {
                     thenable._onrejected = undefined$1;
                     try {
-                        type = Type(value = _onrejected(value));
-                        if (type === THENABLE) {
+                        value = _onrejected(value);
+                        if (isThenable(value)) {
+                            prepend(value);
                             _status = value._status;
                             if (_status === PENDING) {
                                 value._dependents.push(thenable);
@@ -99,7 +159,7 @@ function flow(thenable, value, status) {
                                 status = _status;
                             }
                         }
-                        else if (type === PROMISE) {
+                        else if (beenPromise(value)) {
                             depend(thenable, value);
                             break stack;
                         }
@@ -121,18 +181,19 @@ function flow(thenable, value, status) {
             if (_dependents) {
                 thenable._dependents = null;
                 for (var index = _dependents.length; index;) {
-                    stack = { nextStack: stack, thenable: _dependents[--index], value: value, status: status };
+                    flowStack = { nextStack: flowStack, thenable: _dependents[--index], value: value, status: status };
                 }
             }
         }
-        if (!stack) {
+        if (!flowStack) {
             break;
         }
-        thenable = stack.thenable;
-        value = stack.value;
-        status = stack.status;
-        stack = stack.nextStack;
+        thenable = flowStack.thenable;
+        value = flowStack.value;
+        status = flowStack.status;
+        flowStack = flowStack.nextStack;
     }
+    flowing = false;
 }
 function depend(thenable, value) {
     var red;
@@ -152,12 +213,11 @@ function depend(thenable, value) {
 }
 
 function resolve(value) {
-    var type = Type(value);
-    if (type === THENABLE) {
+    if (isThenable(value)) {
         return value;
     }
     var THIS = new Private;
-    if (type === PROMISE) {
+    if (beenPromise()) {
         THIS._dependents = [];
         try_depend(THIS, value);
     }
@@ -208,8 +268,8 @@ function all_try(values, THIS) {
     var counted;
     for (var length = values.length, index = 0; index < length; ++index) {
         var value = values[index];
-        var type = Type(value);
-        if (type === THENABLE) {
+        if (isThenable(value)) {
+            prepend(value);
             var _status = value._status;
             if (_status === PENDING) {
                 ++count;
@@ -240,7 +300,7 @@ function all_try(values, THIS) {
                 _value[index] = value._value;
             }
         }
-        else if (type === PROMISE) {
+        else if (beenPromise(value)) {
             ++count;
             _value[index] = undefined$1;
             value.then(function (index) {
@@ -298,8 +358,8 @@ function race_try(values, THIS) {
     };
     for (var length = values.length, index = 0; index < length; ++index) {
         var value = values[index];
-        var type = Type(value);
-        if (type === THENABLE) {
+        if (isThenable(value)) {
+            prepend(value);
             var _status = value._status;
             if (_status === PENDING) {
                 value._dependents.push(that);
@@ -310,7 +370,7 @@ function race_try(values, THIS) {
                 break;
             }
         }
-        else if (type === PROMISE) {
+        else if (beenPromise(value)) {
             value.then(_onfulfilled, _onrejected);
             if (THIS._status !== PENDING) {
                 break;
@@ -333,7 +393,8 @@ function pend(callbackfn) {
 
 var AWAIT = {
     await: function (value) {
-        if (isThenable(value)) {
+        if (isThenableOnly(value)) {
+            prepend(value);
             switch (value._status) {
                 case FULFILLED:
                     return value._value;
@@ -362,8 +423,8 @@ var Public = function Thenable(executor) {
             red = true;
             if (executed) {
                 try {
-                    var type = Type(value);
-                    if (type === THENABLE) {
+                    if (isThenable(value)) {
+                        prepend(value);
                         _status = value._status;
                         if (_status === PENDING) {
                             value._dependents.push(THIS);
@@ -372,7 +433,7 @@ var Public = function Thenable(executor) {
                             flow(THIS, value._value, _status);
                         }
                     }
-                    else if (type === PROMISE) {
+                    else if (beenPromise(value)) {
                         depend(THIS, value);
                     }
                     else {
@@ -427,29 +488,29 @@ var Public = function Thenable(executor) {
         }
     }
 };
-function rEd(THIS, _status, _value) {
-    if (_status === FULFILLED) {
-        var type = Type(_value);
-        if (type === THENABLE) {
-            _status = _value._status;
-            if (_status === PENDING) {
+function rEd(THIS, status, value) {
+    if (status === FULFILLED) {
+        if (isThenable(value)) {
+            prepend(value);
+            status = value._status;
+            if (status === PENDING) {
                 THIS._dependents = [];
-                _value._dependents.push(THIS);
+                value._dependents.push(THIS);
             }
             else {
-                THIS._value = _value._value;
-                THIS._status = _status;
+                THIS._value = value._value;
+                THIS._status = status;
             }
             return;
         }
-        if (type === PROMISE) {
+        if (beenPromise(value)) {
             THIS._dependents = [];
-            depend(THIS, _value);
+            depend(THIS, value);
             return;
         }
     }
-    THIS._value = _value;
-    THIS._status = _status;
+    THIS._value = value;
+    THIS._status = status;
 }
 
 var prototype = {
@@ -461,11 +522,7 @@ var prototype = {
     _Value: undefined$1,
     then: function then(onfulfilled, onrejected) {
         var THIS = this;
-        var callbackfn = THIS._Value;
-        if (callbackfn) {
-            THIS._Value = undefined$1;
-            callbackAs(callbackfn, THIS);
-        }
+        prepend(THIS);
         var thenable = new Private;
         switch (THIS._status) {
             case PENDING:
@@ -496,14 +553,6 @@ var prototype = {
         throw TypeError('Method Thenable.prototype.then called on incompatible receiver');
     }
 };
-function callbackAs(callbackfn, THIS) {
-    try {
-        flow(THIS, callbackfn(), FULFILLED);
-    }
-    catch (error) {
-        flow(THIS, error, REJECTED);
-    }
-}
 function onto(THIS, on, thenable) {
     try {
         onto_try(thenable, on(THIS._value));
@@ -516,8 +565,8 @@ function onto(THIS, on, thenable) {
     }
 }
 function onto_try(thenable, value) {
-    var type = Type(value);
-    if (type === THENABLE) {
+    if (isThenable(value)) {
+        prepend(value);
         var status = value._status;
         if (status === PENDING) {
             thenable._dependents = [];
@@ -528,7 +577,7 @@ function onto_try(thenable, value) {
             thenable._status = status;
         }
     }
-    else if (value === PROMISE) {
+    else if (beenPromise(value)) {
         thenable._dependents = [];
         depend(thenable, value);
     }

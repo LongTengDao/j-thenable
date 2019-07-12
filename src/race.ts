@@ -1,6 +1,6 @@
 import undefined from '.undefined';
 
-import { flow, PENDING, FULFILLED, REJECTED, Status, Type, THENABLE, PROMISE, Type, Private } from './_';
+import { flow, prepend, PENDING, FULFILLED, REJECTED, Status, isThenable, beenPromise, Private } from './_';
 
 export default function race (values :readonly any[]) :Public {
 	var THIS :Private = new Private;
@@ -28,8 +28,8 @@ function race_try (values :readonly any[], THIS :Private) :void {
 	} as Private;
 	for ( var length :number = values.length, index :number = 0; index<length; ++index ) {
 		var value :any = values[index];
-		var type :Type = Type(value);
-		if ( type===THENABLE ) {
+		if ( isThenable(value) ) {
+			prepend(value);
 			var _status :Status = value._status;
 			if ( _status===PENDING ) { value._dependents!.push(that); }
 			else {
@@ -38,7 +38,7 @@ function race_try (values :readonly any[], THIS :Private) :void {
 				break;
 			}
 		}
-		else if ( type===PROMISE ) {
+		else if ( beenPromise(value) ) {
 			value.then(_onfulfilled, _onrejected);
 			if ( THIS._status!==PENDING ) { break; }
 		}

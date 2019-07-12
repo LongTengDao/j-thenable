@@ -1,7 +1,7 @@
 import TypeError from '.TypeError';
 import undefined from '.undefined';
 
-import { PENDING, REJECTED, FULFILLED, Private, Type, THENABLE, PROMISE, Type, Status, depend, flow, Onfulfilled, Onrejected } from './_';
+import { PENDING, REJECTED, FULFILLED, Private, isThenable, beenPromise, Status, depend, prepend, Onfulfilled, Onrejected } from './_';
 
 export default {
 	_status: PENDING,
@@ -12,11 +12,7 @@ export default {
 	_Value: undefined,
 	then: function then (this :Private, onfulfilled? :Onfulfilled, onrejected? :Onrejected) :Private {
 		var THIS :Private = this;
-		var callbackfn :( () => any ) | undefined = THIS._Value;
-		if ( callbackfn ) {
-			THIS._Value = undefined;
-			callbackAs(callbackfn, THIS);
-		}
+		prepend(THIS);
 		var thenable :Private = new Private;
 		switch ( THIS._status ) {
 			case PENDING:
@@ -44,11 +40,6 @@ export default {
 	}
 };
 
-function callbackAs (callbackfn :() => any, THIS :Private) :void {
-	try { flow(THIS, callbackfn(), FULFILLED); }
-	catch (error) { flow(THIS, error, REJECTED); }
-}
-
 function onto (THIS :Private, on :(_ :any) => any, thenable :Private) {
 	try { onto_try(thenable, on(THIS._value)); }
 	catch (error) {
@@ -60,8 +51,8 @@ function onto (THIS :Private, on :(_ :any) => any, thenable :Private) {
 }
 
 function onto_try (thenable :Private, value :any) :void {
-	var type :Type = Type(value);
-	if ( type===THENABLE ) {
+	if ( isThenable(value) ) {
+		prepend(value);
 		var status :Status = value._status;
 		if ( status===PENDING ) {
 			thenable._dependents = [];
@@ -72,7 +63,7 @@ function onto_try (thenable :Private, value :any) :void {
 			thenable._status = status;
 		}
 	}
-	else if ( value===PROMISE ) {
+	else if ( beenPromise(value) ) {
 		thenable._dependents = [];
 		depend(thenable, value);
 	}

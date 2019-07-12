@@ -1,6 +1,6 @@
 import TypeError from '.TypeError';
 
-import { Status, PENDING, FULFILLED, REJECTED, Type, THENABLE, PROMISE, Type, flow, depend, Private, Executor, Onfulfilled, Onrejected } from './_';
+import { PENDING, FULFILLED, REJECTED, Status, Private, isThenable, beenPromise, flow, depend, prepend, Executor, Onfulfilled, Onrejected } from './_';
 
 export { Public as default };
 
@@ -22,13 +22,13 @@ var Public :{ new (executor :Executor) :Public } = function Thenable (this :Priv
 				red = true;
 				if ( executed ) {
 					try {
-						var type :Type = Type(value);
-						if ( type===THENABLE ) {
+						if ( isThenable(value) ) {
+							prepend(value);
 							_status = value._status;
 							if ( _status===PENDING ) { value._dependents!.push(THIS); }
 							else { flow(THIS, value._value, _status!); }
 						}
-						else if ( type===PROMISE ) { depend(THIS, value); }
+						else if ( beenPromise(value) ) { depend(THIS, value); }
 						else { flow(THIS, value, FULFILLED); }
 					}
 					catch (error) { if ( THIS._status===PENDING ) { flow(THIS, error, REJECTED); } }
@@ -62,7 +62,7 @@ var Public :{ new (executor :Executor) :Public } = function Thenable (this :Priv
 			return;
 		}
 	}
-	try { rEd(THIS, _status, _value); }
+	try { rEd(THIS, _status!, _value); }
 	catch (error) {
 		if ( THIS._status===PENDING ) {
 			THIS._value = error;
@@ -72,27 +72,27 @@ var Public :{ new (executor :Executor) :Public } = function Thenable (this :Priv
 	}
 } as any;
 
-function rEd (THIS :Private, _status :Status | undefined, _value :any) :void {
-	if ( _status===FULFILLED ) {
-		var type :Type = Type(_value);
-		if ( type===THENABLE ) {
-			_status = _value._status;
-			if ( _status===PENDING ) {
+function rEd (THIS :Private, status :Status, value :any) :void {
+	if ( status===FULFILLED ) {
+		if ( isThenable(value) ) {
+			prepend(value);
+			status = value._status;
+			if ( status===PENDING ) {
 				THIS._dependents = [];
-				_value._dependents!.push(THIS);
+				value._dependents!.push(THIS);
 			}
 			else {
-				THIS._value = _value._value;
-				THIS._status = _status;
+				THIS._value = value._value;
+				THIS._status = status;
 			}
 			return;
 		}
-		if ( type===PROMISE ) {
+		if ( beenPromise(value) ) {
 			THIS._dependents = [];
-			depend(THIS, _value);
+			depend(THIS, value);
 			return;
 		}
 	}
-	THIS._value = _value;
-	THIS._status = _status!;
+	THIS._value = value;
+	THIS._status = status;
 }

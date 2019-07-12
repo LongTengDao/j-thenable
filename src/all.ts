@@ -1,6 +1,6 @@
 import undefined from '.undefined';
 
-import { PENDING, REJECTED, FULFILLED, flow, Type, THENABLE, PROMISE, Type, Status, Private, Onfulfilled } from './_';
+import { PENDING, REJECTED, FULFILLED, flow, prepend, isThenable, beenPromise, Status, Private, Onfulfilled } from './_';
 
 export default function all (values :readonly any[]) :Public {
 	var THIS :Private = new Private;
@@ -23,8 +23,8 @@ function all_try (values :readonly any[], THIS :Private) :void {
 	var counted :boolean | undefined;
 	for ( var length :number = values.length, index :number = 0; index<length; ++index ) {
 		var value :any = values[index];
-		var type :Type = Type(value);
-		if ( type===THENABLE ) {
+		if ( isThenable(value) ) {
+			prepend(value);
 			var _status :Status = value._status;
 			if ( _status===PENDING ) {
 				++count;
@@ -51,7 +51,7 @@ function all_try (values :readonly any[], THIS :Private) :void {
 			}
 			else { _value[index] = value._value; }
 		}
-		else if ( type===PROMISE ) {
+		else if ( beenPromise(value) ) {
 			++count;
 			_value[index] = undefined;
 			value.then(
