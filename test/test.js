@@ -73,6 +73,15 @@ module.exports = require('@ltd/j-dev')(__dirname+'/..')(async function ({ import
 	
 	log(16);
 	
+	Thenable.all([
+		Thenable.pend(function callbackfn () {
+			return Thenable.resolve(1);
+		}),
+		Thenable.resolve(2),
+	]).then(function onfulfilled (values) {
+		if ( ''+values!=='1,2' ) { e = e || Error(`got values ${values} when 1,2 is expected`); }
+	});
+	
 	if ( e ) { throw e; }
 	
 });
