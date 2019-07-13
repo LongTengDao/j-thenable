@@ -1,28 +1,28 @@
 import undefined from '.undefined';
 
-import { flow, prepend, PENDING, FULFILLED, REJECTED, Status, isThenable, beenPromise, Private } from './_';
+import { flow, prepend, PENDING, FULFILLED, REJECTED, Status, isThenable, isPromise, Private, get_status, set_value, set_status, delete_dependents, set_dependents, get_dependents, get_value } from './_';
 
 export default function race (values :readonly any[]) :Public {
 	var THIS :Private = new Private;
 	try { race_try(values, THIS); }
 	catch (error) {
-		if ( THIS._status===PENDING ) {
-			THIS._value = error;
-			THIS._status = REJECTED;
-			THIS._dependents = null;
+		if ( get_status(THIS)===PENDING ) {
+			set_value(THIS, error);
+			set_status(THIS, REJECTED);
+			delete_dependents(THIS);
 		}
 	}
 	return THIS;
 };
 
 function race_try (values :readonly any[], THIS :Private) :void {
-	THIS._dependents = [];
-	function _onfulfilled (value :any) :any { THIS._status===PENDING && flow(THIS, value, FULFILLED); }
-	function _onrejected (error :any) :any { THIS._status===PENDING && flow(THIS, error, REJECTED); }
+	set_dependents(THIS, []);
+	function _onfulfilled (value :any) :any { get_status(THIS)===PENDING && flow(THIS, value, FULFILLED); }
+	function _onrejected (error :any) :any { get_status(THIS)===PENDING && flow(THIS, error, REJECTED); }
 	var that :Private = {
 		_status: 0,
 		_value: undefined,
-		_dependents: null,
+		_dependents: undefined,
 		_onfulfilled: _onfulfilled,
 		_onrejected: _onrejected
 	} as Private;
@@ -30,21 +30,21 @@ function race_try (values :readonly any[], THIS :Private) :void {
 		var value :any = values[index];
 		if ( isThenable(value) ) {
 			prepend(value);
-			var _status :Status = value._status;
-			if ( _status===PENDING ) { value._dependents!.push(that); }
+			var _status :Status = get_status(value);
+			if ( _status===PENDING ) { get_dependents(value)!.push(that); }
 			else {
-				THIS._value = value._value;
-				THIS._status = _status;
+				set_value(THIS, get_value(value));
+				set_status(THIS, _status);
 				break;
 			}
 		}
-		else if ( beenPromise(value) ) {
+		else if ( isPromise(value) ) {
 			value.then(_onfulfilled, _onrejected);
-			if ( THIS._status!==PENDING ) { break; }
+			if ( get_status(THIS)!==PENDING ) { break; }
 		}
 		else {
-			THIS._value = value;
-			THIS._status = FULFILLED;
+			set_value(THIS, value);
+			set_status(THIS, FULFILLED);
 			break;
 		}
 	}

@@ -1,14 +1,14 @@
-import { isThenableOnly, FULFILLED, REJECTED, prepend } from './_';
+import { isThenable, FULFILLED, REJECTED, prepend, get_status, get_value } from './_';
 
 export default {
 	await: function (value :any) :any {
-		if ( isThenableOnly(value) ) {
+		if ( isThenable(value) ) {
 			prepend(value);
-			switch ( value._status ) {
+			switch ( get_status(value) ) {
 				case FULFILLED:
-					return value._value;
+					return get_value(value);
 				case REJECTED:
-					throw value._value;
+					throw get_value(value);
 			}
 		}
 		return value;

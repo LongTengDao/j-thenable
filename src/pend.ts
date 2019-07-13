@@ -1,9 +1,12 @@
-import { Private } from './_';
+import TypeError from '.TypeError';
 
-export default function pend (callbackfn :() => any) :Public {
+import { Private, Onthen, set_dependents, set_onthen } from './_';
+
+export default function pend (onthen :Onthen) :Public {
+	if ( typeof onthen!=='function' ) { throw TypeError('Thenable.pend(onthen is not a function)'); }
 	var THIS :Private = new Private;
-	THIS._dependents = [];
-	THIS._Value = callbackfn;
+	set_dependents(THIS, []);
+	set_onthen(THIS, onthen);
 	return THIS;
 };
 

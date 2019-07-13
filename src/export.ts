@@ -1,5 +1,6 @@
-import seal from '.Object.seal';
+import WeakMap from '.WeakMap';
 import freeze from '.Object.freeze';
+import seal from '.Object.seal';
 
 import version from './version?text';
 export { version };
@@ -22,7 +23,7 @@ export {
 import { Private, Executor } from './_';
 import Public from './Thenable';
 import prototype from './Thenable.prototype';
-Public.prototype = Private.prototype = seal ? /*#__PURE__*/ seal(prototype) : prototype;
+Public.prototype = Private.prototype = typeof WeakMap==='function' ? /*#__PURE__*/ freeze(prototype) : seal ? /*#__PURE__*/ seal(prototype) : prototype;
 
 import Default from '.default?=';
 export default Default(Public, {

@@ -74,7 +74,7 @@ module.exports = require('@ltd/j-dev')(__dirname+'/..')(async function ({ import
 	log(16);
 	
 	Thenable.all([
-		Thenable.pend(function callbackfn () {
+		Thenable.pend(function onthen () {
 			return Thenable.resolve(1);
 		}),
 		Thenable.resolve(2),

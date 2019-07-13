@@ -1,51 +1,58 @@
 import TypeError from '.TypeError';
+import WeakMap from '.WeakMap';
 import undefined from '.undefined';
 
-import { PENDING, REJECTED, FULFILLED, Private, isThenable, beenPromise, Status, depend, prepend, Onfulfilled, Onrejected } from './_';
+import { PENDING, REJECTED, FULFILLED, Private, isThenable, isPromise, Status, depend, prepend, Onfulfilled, Onrejected, get_status, set_dependents, set_onfulfilled, set_onrejected, get_dependents, set_value, get_value, set_status } from './_';
 
-export default {
-	_status: PENDING,
-	_value: undefined,
-	_dependents: null,
-	_onfulfilled: undefined,
-	_onrejected: undefined,
-	_Value: undefined,
-	then: function then (this :Private, onfulfilled? :Onfulfilled, onrejected? :Onrejected) :Private {
-		var THIS :Private = this;
-		prepend(THIS);
-		var thenable :Private = new Private;
-		switch ( THIS._status ) {
-			case PENDING:
-				thenable._dependents = [];
-				thenable._onfulfilled = onfulfilled;
-				thenable._onrejected = onrejected;
-				THIS._dependents!.push(thenable);
-				return thenable;
-			case FULFILLED:
-				if ( typeof onfulfilled==='function' ) { onto(THIS, onfulfilled, thenable); }
-				else {
-					thenable._value = THIS._value;
-					thenable._status = FULFILLED;
-				}
-				return thenable;
-			case REJECTED:
-				if ( typeof onrejected==='function' ) { onto(THIS, onrejected, thenable); }
-				else {
-					thenable._value = THIS._value;
-					thenable._status = REJECTED;
-				}
-				return thenable;
-		}
-		throw TypeError('Method Thenable.prototype.then called on incompatible receiver');
+export default typeof WeakMap==='function'
+	? { then: then }
+	: {
+		_status: PENDING,
+		_value: undefined,
+		_dependents: undefined,
+		_onfulfilled: undefined,
+		_onrejected: undefined,
+		_onthen: undefined,
+		then: then
+	};
+
+function then (this :Private, onfulfilled? :Onfulfilled, onrejected? :Onrejected) :Private {
+	var THIS :Private = this;
+	var thenable :Private = new Private;
+	switch ( get_status(THIS) ) {
+		case PENDING:
+			prepend(THIS);
+			set_dependents(thenable, []);
+			if ( typeof onfulfilled==='function' ) { set_onfulfilled(thenable, onfulfilled); }
+			if ( typeof onrejected==='function' ) { set_onrejected(thenable, onrejected); }
+			get_dependents(THIS)!.push(thenable);
+			return thenable;
+		case FULFILLED:
+			prepend(THIS);
+			if ( typeof onfulfilled==='function' ) { onto(THIS, onfulfilled, thenable); }
+			else {
+				set_value(thenable, get_value(THIS));
+				set_status(thenable, FULFILLED);
+			}
+			return thenable;
+		case REJECTED:
+			prepend(THIS);
+			if ( typeof onrejected==='function' ) { onto(THIS, onrejected, thenable); }
+			else {
+				set_value(thenable, get_value(THIS));
+				set_status(thenable, REJECTED);
+			}
+			return thenable;
 	}
-};
+	throw TypeError('Method Thenable.prototype.then called on incompatible receiver');
+}
 
 function onto (THIS :Private, on :(_ :any) => any, thenable :Private) {
-	try { onto_try(thenable, on(THIS._value)); }
+	try { onto_try(thenable, on(get_value(THIS))); }
 	catch (error) {
-		if ( thenable._status===PENDING ) {
-			thenable._value = error;
-			thenable._status = REJECTED;
+		if ( get_status(thenable)===PENDING ) {
+			set_value(thenable, error);
+			set_status(thenable, REJECTED);
 		}
 	}
 }
@@ -53,22 +60,22 @@ function onto (THIS :Private, on :(_ :any) => any, thenable :Private) {
 function onto_try (thenable :Private, value :any) :void {
 	if ( isThenable(value) ) {
 		prepend(value);
-		var status :Status = value._status;
+		var status :Status = get_status(value);
 		if ( status===PENDING ) {
-			thenable._dependents = [];
-			value._dependents!.push(thenable);
+			set_dependents(thenable, []);
+			get_dependents(value)!.push(thenable);
 		}
 		else {
-			thenable._value = value._value;
-			thenable._status = status;
+			set_value(thenable, get_value(value));
+			set_status(thenable, status);
 		}
 	}
-	else if ( beenPromise(value) ) {
-		thenable._dependents = [];
+	else if ( isPromise(value) ) {
+		set_dependents(thenable, []);
 		depend(thenable, value);
 	}
 	else {
-		thenable._value = value;
-		thenable._status = FULFILLED;
+		set_value(thenable, value);
+		set_status(thenable, FULFILLED);
 	}
 }

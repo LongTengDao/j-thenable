@@ -1,71 +1,153 @@
 ﻿'use strict';
 
-var seal = Object.seal;
-
 var freeze = Object.freeze;
 
-var version = '4.0.1';
+var seal = Object.seal;
+
+var version = '4.1.0';
 
 var Promise_prototype = typeof Promise!=='undefined' ? Promise.prototype : undefined;
+
+var getPrototypeOf = Object.getPrototypeOf;
 
 var undefined$1 = void 0;
 
 var PENDING = 0;
 var FULFILLED = 1;
 var REJECTED = 2;
-var Private = function Thenable() { };
-var wasPromise = false;
-function isThenableOnly(value) {
-    return value instanceof Private;
+var Private_call;
+var Private = function () { Private_call(this); };
+var isThenable;
+var delete_dependents;
+var delete_onrejected;
+var delete_onfulfilled;
+var delete_onthen;
+var delete_onfulfilled_if_has;
+var delete_onrejected_if_has;
+var get_status;
+var get_value;
+var get_dependents;
+var get_onfulfilled;
+var get_onrejected;
+var get_onthen;
+var set_status;
+var set_value;
+var set_dependents;
+var set_onfulfilled;
+var set_onrejected;
+var set_onthen;
+if (typeof WeakMap === 'function') {
+    var STATUS = new WeakMap;
+    var VALUE = new WeakMap;
+    var DEPENDENTS = new WeakMap;
+    var ONFULFILLED = new WeakMap;
+    var ONREJECTED = new WeakMap;
+    var ONTHEN = new WeakMap;
+    Private_call = function Private_call(THIS) { STATUS.set(THIS, PENDING); };
+    isThenable = function isThenable(value) { return STATUS.has(value); };
+    /* delete: */
+    delete_dependents = function delete_dependents(THIS) { DEPENDENTS['delete'](THIS); };
+    delete_onfulfilled = function delete_onfulfilled(THIS) { ONFULFILLED['delete'](THIS); };
+    delete_onrejected = function delete_onrejected(THIS) { ONREJECTED['delete'](THIS); };
+    delete_onthen = function delete_onthen(THIS) { ONTHEN['delete'](THIS); };
+    delete_onfulfilled_if_has = function delete_onfulfilled_if_has(THIS) { ONFULFILLED['delete'](THIS); };
+    delete_onrejected_if_has = function delete_onrejected_if_has(THIS) { ONREJECTED['delete'](THIS); }; /**/
+    /* set undefined: * /
+    delete_dependents = function delete_dependents (THIS :Private) :void { DEPENDENTS.set(THIS, undefined!); };
+    delete_onfulfilled = function delete_onfulfilled (THIS :Private) :void { ONFULFILLED.set(THIS, undefined!); };
+    delete_onrejected = function delete_onrejected (THIS :Private) :void { ONREJECTED.set(THIS, undefined!); };
+    delete_onthen = function delete_onthen (THIS :Private) :void { ONTHEN.set(THIS, undefined!); };
+    delete_onfulfilled_if_has = function delete_onfulfilled_if_has (THIS :Private) :void { ONFULFILLED.has(THIS) && ONFULFILLED.set(THIS, undefined!); };
+    delete_onrejected_if_has = function delete_onrejected_if_has (THIS :Private) :void { ONREJECTED.has(THIS) && ONREJECTED.set(THIS, undefined!); };/**/
+    get_status = function get_status(THIS) { return STATUS.get(THIS); };
+    get_value = function get_value(THIS) { return VALUE.get(THIS); };
+    get_dependents = function get_dependents(THIS) { return DEPENDENTS.get(THIS); };
+    get_onfulfilled = function get_onfulfilled(THIS) { return ONFULFILLED.get(THIS); };
+    get_onrejected = function get_onrejected(THIS) { return ONREJECTED.get(THIS); };
+    get_onthen = function get_onthen(THIS) { return ONTHEN.get(THIS); };
+    set_status = function set_status(THIS, status) { STATUS.set(THIS, status); };
+    set_value = function set_value(THIS, value) { VALUE.set(THIS, value); };
+    set_dependents = function set_dependents(THIS, dependents) { DEPENDENTS.set(THIS, dependents); };
+    set_onfulfilled = function set_onfulfilled(THIS, onfulfilled) { ONFULFILLED.set(THIS, onfulfilled); };
+    set_onrejected = function set_onrejected(THIS, onrejected) { ONREJECTED.set(THIS, onrejected); };
+    set_onthen = function set_onthen(THIS, onthen) { ONTHEN.set(THIS, onthen); };
 }
-var isThenable = Promise_prototype
-    ? function () {
-        var Promise = function () { };
-        Promise.prototype = Promise_prototype;
-        return function isThenable(value) {
-            if (value instanceof Private) {
-                return true;
-            }
-            wasPromise = value instanceof Promise;
-            return false;
-        };
-    }()
-    : isThenableOnly;
-function beenPromise(value) { return wasPromise; }
+else {
+    Private_call = function Private_call() { };
+    isThenable = getPrototypeOf
+        ? function (value) {
+            var Private_prototype = Private.prototype;
+            isThenable = function isThenable(value) { return value != null && getPrototypeOf(value) === Private_prototype; };
+            return isThenable(value);
+        }
+        : function isThenable(value) { return value instanceof Private; };
+    /* set undefined: */
+    delete_dependents = function delete_dependents(THIS) { THIS._dependents = undefined$1; };
+    delete_onrejected = function delete_onrejected(THIS) { THIS._onrejected = undefined$1; };
+    delete_onfulfilled = function delete_onfulfilled(THIS) { THIS._onfulfilled = undefined$1; };
+    delete_onthen = function delete_onthen(THIS) { THIS._onthen = undefined$1; };
+    delete_onfulfilled_if_has = function delete_onfulfilled_if_has(THIS) { if (THIS._onfulfilled) {
+        THIS._onfulfilled = undefined$1;
+    } };
+    delete_onrejected_if_has = function delete_onrejected_if_has(THIS) { if (THIS._onrejected) {
+        THIS._onrejected = undefined$1;
+    } }; /**/
+    get_status = function get_status(THIS) { return THIS._status; };
+    get_value = function get_value(THIS) { return THIS._value; };
+    get_dependents = function get_dependents(THIS) { return THIS._dependents; };
+    get_onfulfilled = function get_onfulfilled(THIS) { return THIS._onfulfilled; };
+    get_onrejected = function get_onrejected(THIS) { return THIS._onrejected; };
+    get_onthen = function get_onthen(THIS) { return THIS._onthen; };
+    set_status = function set_status(THIS, status) { THIS._status = status; };
+    set_value = function set_value(THIS, value) { THIS._value = value; };
+    set_dependents = function set_dependents(THIS, dependents) { THIS._dependents = dependents; };
+    set_onfulfilled = function set_onfulfilled(THIS, onfulfilled) { THIS._onfulfilled = onfulfilled; };
+    set_onrejected = function set_onrejected(THIS, onrejected) { THIS._onrejected = onrejected; };
+    set_onthen = function set_onthen(THIS, onthen) { THIS._onthen = onthen; };
+}
+var isPromise = Promise_prototype
+    ? getPrototypeOf
+        ? function isPromise(value) { return value != null && getPrototypeOf(value) === Promise_prototype; }
+        : function () {
+            function Promise() { }
+            Promise.prototype = Promise_prototype;
+            return function isPromise(value) { return value instanceof Promise; };
+        }()
+    : function isPromise() { return false; };
 var prependStack = null;
 var prepending = false;
 function prepend(thenable) {
-    var callbackfn = thenable._Value;
-    if (!callbackfn) {
+    var _onthen = get_onthen(thenable);
+    if (!_onthen) {
         return;
     }
-    thenable._Value = undefined$1;
+    delete_onthen(thenable);
     if (prepending) {
-        prependStack = { nextStack: prependStack, thenable: thenable, Value: callbackfn };
+        prependStack = { nextStack: prependStack, thenable: thenable, onthen: _onthen };
         return;
     }
     prepending = true;
     for (;;) {
         try {
-            var value = callbackfn();
+            var value = _onthen();
             if (isThenable(value)) {
-                callbackfn = value._Value;
-                if (callbackfn) {
-                    value._Value = undefined$1;
-                    value._dependents.push(thenable);
-                    prependStack = { nextStack: prependStack, thenable: value, Value: callbackfn };
+                _onthen = get_onthen(value);
+                if (_onthen) {
+                    delete_onthen(value);
+                    get_dependents(value).push(thenable);
+                    prependStack = { nextStack: prependStack, thenable: value, onthen: _onthen };
                 }
                 else {
-                    var status = value._status;
+                    var status = get_status(value);
                     if (status === PENDING) {
-                        value._dependents.push(thenable);
+                        get_dependents(value).push(thenable);
                     }
                     else {
-                        flow(thenable, value._value, status);
+                        flow(thenable, get_value(value), status);
                     }
                 }
             }
-            else if (beenPromise(value)) {
+            else if (isPromise(value)) {
                 depend(thenable, value);
             }
             else {
@@ -79,7 +161,7 @@ function prepend(thenable) {
             break;
         }
         thenable = prependStack.thenable;
-        callbackfn = prependStack.Value;
+        _onthen = prependStack.onthen;
         prependStack = prependStack.nextStack;
     }
     prepending = false;
@@ -95,33 +177,31 @@ function flow(thenable, value, status) {
     for (var _status;;) {
         stack: {
             if (status === FULFILLED) {
-                if (thenable._onrejected) {
-                    thenable._onrejected = undefined$1;
-                }
-                var _onfulfilled = thenable._onfulfilled;
+                delete_onrejected_if_has(thenable);
+                var _onfulfilled = get_onfulfilled(thenable);
                 if (_onfulfilled) {
-                    thenable._onfulfilled = undefined$1;
+                    delete_onfulfilled(thenable);
                     try {
                         value = _onfulfilled(value);
                         if (isThenable(value)) {
                             prepend(value);
-                            _status = value._status;
+                            _status = get_status(value);
                             if (_status === PENDING) {
-                                value._dependents.push(thenable);
+                                get_dependents(value).push(thenable);
                                 break stack;
                             }
                             else {
-                                value = value._value;
+                                value = get_value(value);
                                 status = _status;
                             }
                         }
-                        else if (beenPromise(value)) {
+                        else if (isPromise(value)) {
                             depend(thenable, value);
                             break stack;
                         }
                     }
                     catch (error) {
-                        if (thenable._status !== PENDING) {
+                        if (get_status(thenable) !== PENDING) {
                             break stack;
                         }
                         value = error;
@@ -130,27 +210,25 @@ function flow(thenable, value, status) {
                 }
             }
             else {
-                if (thenable._onfulfilled) {
-                    thenable._onfulfilled = undefined$1;
-                }
-                var _onrejected = thenable._onrejected;
+                delete_onfulfilled_if_has(thenable);
+                var _onrejected = get_onrejected(thenable);
                 if (_onrejected) {
-                    thenable._onrejected = undefined$1;
+                    delete_onrejected(thenable);
                     try {
                         value = _onrejected(value);
                         if (isThenable(value)) {
                             prepend(value);
-                            _status = value._status;
+                            _status = get_status(value);
                             if (_status === PENDING) {
-                                value._dependents.push(thenable);
+                                get_dependents(value).push(thenable);
                                 break stack;
                             }
                             else {
-                                value = value._value;
+                                value = get_value(value);
                                 status = _status;
                             }
                         }
-                        else if (beenPromise(value)) {
+                        else if (isPromise(value)) {
                             depend(thenable, value);
                             break stack;
                         }
@@ -159,18 +237,18 @@ function flow(thenable, value, status) {
                         }
                     }
                     catch (error) {
-                        if (thenable._status !== PENDING) {
+                        if (get_status(thenable) !== PENDING) {
                             break stack;
                         }
                         value = error;
                     }
                 }
             }
-            thenable._value = value;
-            thenable._status = status;
-            var _dependents = thenable._dependents;
+            set_value(thenable, value);
+            set_status(thenable, status);
+            var _dependents = get_dependents(thenable);
             if (_dependents) {
-                thenable._dependents = null;
+                delete_dependents(thenable);
                 for (var index = _dependents.length; index;) {
                     flowStack = { nextStack: flowStack, thenable: _dependents[--index], value: value, status: status };
                 }
@@ -208,13 +286,13 @@ function resolve(value) {
         return value;
     }
     var THIS = new Private;
-    if (beenPromise()) {
-        THIS._dependents = [];
+    if (isPromise(value)) {
+        set_dependents(THIS, []);
         try_depend(THIS, value);
     }
     else {
-        THIS._value = value;
-        THIS._status = FULFILLED;
+        set_value(THIS, value);
+        set_status(THIS, FULFILLED);
     }
     return THIS;
 }
@@ -223,17 +301,17 @@ function try_depend(THIS, value) {
         depend(THIS, value);
     }
     catch (error) {
-        if (THIS._status === PENDING) {
-            THIS._value = error;
-            THIS._status = REJECTED;
+        if (get_status(THIS) === PENDING) {
+            set_value(THIS, error);
+            set_status(THIS, REJECTED);
         }
     }
 }
 
 function reject(error) {
     var THIS = new Private;
-    THIS._status = REJECTED;
-    THIS._value = error;
+    set_status(THIS, REJECTED);
+    set_value(THIS, error);
     return THIS;
 }
 
@@ -243,17 +321,17 @@ function all(values) {
         all_try(values, THIS);
     }
     catch (error) {
-        if (THIS._status === PENDING) {
-            THIS._value = error;
-            THIS._status = REJECTED;
-            THIS._dependents = null;
+        if (get_status(THIS) === PENDING) {
+            set_value(THIS, error);
+            set_status(THIS, REJECTED);
+            delete_dependents(THIS);
         }
     }
     return THIS;
 }
 function all_try(values, THIS) {
-    THIS._dependents = [];
-    function _onrejected(error) { THIS._status === PENDING && flow(THIS, error, REJECTED); }
+    set_dependents(THIS, []);
+    function _onrejected(error) { get_status(THIS) === PENDING && flow(THIS, error, REJECTED); }
     var _value = [];
     var count = 0;
     var counted;
@@ -261,17 +339,17 @@ function all_try(values, THIS) {
         var value = values[index];
         if (isThenable(value)) {
             prepend(value);
-            var _status = value._status;
+            var _status = get_status(value);
             if (_status === PENDING) {
                 ++count;
                 _value[index] = undefined$1;
-                value._dependents.push({
+                get_dependents(value).push({
                     _status: 0,
                     _value: undefined$1,
-                    _dependents: null,
+                    _dependents: undefined$1,
                     _onfulfilled: function (index) {
                         return function (value) {
-                            if (THIS._status === PENDING) {
+                            if (get_status(THIS) === PENDING) {
                                 _value[index] = value;
                                 if (!--count && counted) {
                                     flow(THIS, _value, FULFILLED);
@@ -283,15 +361,15 @@ function all_try(values, THIS) {
                 });
             }
             else if (_status === REJECTED) {
-                THIS._value = value._value;
-                THIS._status = REJECTED;
+                set_value(THIS, get_value(value));
+                set_status(THIS, REJECTED);
                 break;
             }
             else {
-                _value[index] = value._value;
+                _value[index] = get_value(value);
             }
         }
-        else if (beenPromise(value)) {
+        else if (isPromise(value)) {
             ++count;
             _value[index] = undefined$1;
             value.then(function (index) {
@@ -301,7 +379,7 @@ function all_try(values, THIS) {
                         return;
                     }
                     red = true;
-                    if (THIS._status === PENDING) {
+                    if (get_status(THIS) === PENDING) {
                         _value[index] = value;
                         if (!--count && counted) {
                             flow(THIS, _value, FULFILLED);
@@ -315,10 +393,10 @@ function all_try(values, THIS) {
         }
     }
     counted = true;
-    if (!count && THIS._status === PENDING) {
-        THIS._value = _value;
-        THIS._status = FULFILLED;
-        THIS._dependents = null;
+    if (!count && get_status(THIS) === PENDING) {
+        set_value(THIS, _value);
+        set_status(THIS, FULFILLED);
+        delete_dependents(THIS);
     }
 }
 
@@ -328,22 +406,22 @@ function race(values) {
         race_try(values, THIS);
     }
     catch (error) {
-        if (THIS._status === PENDING) {
-            THIS._value = error;
-            THIS._status = REJECTED;
-            THIS._dependents = null;
+        if (get_status(THIS) === PENDING) {
+            set_value(THIS, error);
+            set_status(THIS, REJECTED);
+            delete_dependents(THIS);
         }
     }
     return THIS;
 }
 function race_try(values, THIS) {
-    THIS._dependents = [];
-    function _onfulfilled(value) { THIS._status === PENDING && flow(THIS, value, FULFILLED); }
-    function _onrejected(error) { THIS._status === PENDING && flow(THIS, error, REJECTED); }
+    set_dependents(THIS, []);
+    function _onfulfilled(value) { get_status(THIS) === PENDING && flow(THIS, value, FULFILLED); }
+    function _onrejected(error) { get_status(THIS) === PENDING && flow(THIS, error, REJECTED); }
     var that = {
         _status: 0,
         _value: undefined$1,
-        _dependents: null,
+        _dependents: undefined$1,
         _onfulfilled: _onfulfilled,
         _onrejected: _onrejected
     };
@@ -351,46 +429,49 @@ function race_try(values, THIS) {
         var value = values[index];
         if (isThenable(value)) {
             prepend(value);
-            var _status = value._status;
+            var _status = get_status(value);
             if (_status === PENDING) {
-                value._dependents.push(that);
+                get_dependents(value).push(that);
             }
             else {
-                THIS._value = value._value;
-                THIS._status = _status;
+                set_value(THIS, get_value(value));
+                set_status(THIS, _status);
                 break;
             }
         }
-        else if (beenPromise(value)) {
+        else if (isPromise(value)) {
             value.then(_onfulfilled, _onrejected);
-            if (THIS._status !== PENDING) {
+            if (get_status(THIS) !== PENDING) {
                 break;
             }
         }
         else {
-            THIS._value = value;
-            THIS._status = FULFILLED;
+            set_value(THIS, value);
+            set_status(THIS, FULFILLED);
             break;
         }
     }
 }
 
-function pend(callbackfn) {
+function pend(onthen) {
+    if (typeof onthen !== 'function') {
+        throw TypeError('Thenable.pend(onthen is not a function)');
+    }
     var THIS = new Private;
-    THIS._dependents = [];
-    THIS._Value = callbackfn;
+    set_dependents(THIS, []);
+    set_onthen(THIS, onthen);
     return THIS;
 }
 
 var AWAIT = {
     await: function (value) {
-        if (isThenableOnly(value)) {
+        if (isThenable(value)) {
             prepend(value);
-            switch (value._status) {
+            switch (get_status(value)) {
                 case FULFILLED:
-                    return value._value;
+                    return get_value(value);
                 case REJECTED:
-                    throw value._value;
+                    throw get_value(value);
             }
         }
         return value;
@@ -399,13 +480,15 @@ var AWAIT = {
 
 var Public = function Thenable(executor) {
     if (typeof executor !== 'function') {
-        throw TypeError('Thenable executor is not a function');
+        throw TypeError('new Thenable(executor is not a function)');
     }
     var executed;
     var red;
     var _value;
     var _status;
     var THIS = this;
+    //this instanceof Thenable || throw(TypeError());
+    Private_call(THIS);
     try {
         executor(function resolve(value) {
             if (red) {
@@ -416,15 +499,15 @@ var Public = function Thenable(executor) {
                 try {
                     if (isThenable(value)) {
                         prepend(value);
-                        _status = value._status;
+                        _status = get_status(value);
                         if (_status === PENDING) {
-                            value._dependents.push(THIS);
+                            get_dependents(value).push(THIS);
                         }
                         else {
-                            flow(THIS, value._value, _status);
+                            flow(THIS, get_value(value), _status);
                         }
                     }
-                    else if (beenPromise(value)) {
+                    else if (isPromise(value)) {
                         depend(THIS, value);
                     }
                     else {
@@ -432,7 +515,7 @@ var Public = function Thenable(executor) {
                     }
                 }
                 catch (error) {
-                    if (THIS._status === PENDING) {
+                    if (get_status(THIS) === PENDING) {
                         flow(THIS, error, REJECTED);
                     }
                 }
@@ -456,15 +539,15 @@ var Public = function Thenable(executor) {
         });
         if (!red) {
             executed = true;
-            THIS._dependents = [];
+            set_dependents(THIS, []);
             return;
         }
     }
     catch (error) {
         if (!red) {
             red = true;
-            THIS._value = error;
-            THIS._status = REJECTED;
+            set_value(THIS, error);
+            set_status(THIS, REJECTED);
             return;
         }
     }
@@ -472,10 +555,10 @@ var Public = function Thenable(executor) {
         rEd(THIS, _status, _value);
     }
     catch (error) {
-        if (THIS._status === PENDING) {
-            THIS._value = error;
-            THIS._status = REJECTED;
-            THIS._dependents = null;
+        if (get_status(THIS) === PENDING) {
+            set_value(THIS, error);
+            set_status(THIS, REJECTED);
+            delete_dependents(THIS);
         }
     }
 };
@@ -483,98 +566,107 @@ function rEd(THIS, status, value) {
     if (status === FULFILLED) {
         if (isThenable(value)) {
             prepend(value);
-            status = value._status;
+            status = get_status(value);
             if (status === PENDING) {
-                THIS._dependents = [];
-                value._dependents.push(THIS);
+                set_dependents(THIS, []);
+                get_dependents(value).push(THIS);
             }
             else {
-                THIS._value = value._value;
-                THIS._status = status;
+                set_value(THIS, get_value(value));
+                set_status(THIS, status);
             }
             return;
         }
-        if (beenPromise(value)) {
-            THIS._dependents = [];
+        if (isPromise(value)) {
+            set_dependents(THIS, []);
             depend(THIS, value);
             return;
         }
     }
-    THIS._value = value;
-    THIS._status = status;
+    set_value(THIS, value);
+    set_status(THIS, status);
 }
 
-var prototype = {
-    _status: PENDING,
-    _value: undefined$1,
-    _dependents: null,
-    _onfulfilled: undefined$1,
-    _onrejected: undefined$1,
-    _Value: undefined$1,
-    then: function then(onfulfilled, onrejected) {
-        var THIS = this;
-        prepend(THIS);
-        var thenable = new Private;
-        switch (THIS._status) {
-            case PENDING:
-                thenable._dependents = [];
-                thenable._onfulfilled = onfulfilled;
-                thenable._onrejected = onrejected;
-                THIS._dependents.push(thenable);
-                return thenable;
-            case FULFILLED:
-                if (typeof onfulfilled === 'function') {
-                    onto(THIS, onfulfilled, thenable);
-                }
-                else {
-                    thenable._value = THIS._value;
-                    thenable._status = FULFILLED;
-                }
-                return thenable;
-            case REJECTED:
-                if (typeof onrejected === 'function') {
-                    onto(THIS, onrejected, thenable);
-                }
-                else {
-                    thenable._value = THIS._value;
-                    thenable._status = REJECTED;
-                }
-                return thenable;
-        }
-        throw TypeError('Method Thenable.prototype.then called on incompatible receiver');
+var prototype = typeof WeakMap === 'function'
+    ? { then: then }
+    : {
+        _status: PENDING,
+        _value: undefined$1,
+        _dependents: undefined$1,
+        _onfulfilled: undefined$1,
+        _onrejected: undefined$1,
+        _onthen: undefined$1,
+        then: then
+    };
+function then(onfulfilled, onrejected) {
+    var THIS = this;
+    var thenable = new Private;
+    switch (get_status(THIS)) {
+        case PENDING:
+            prepend(THIS);
+            set_dependents(thenable, []);
+            if (typeof onfulfilled === 'function') {
+                set_onfulfilled(thenable, onfulfilled);
+            }
+            if (typeof onrejected === 'function') {
+                set_onrejected(thenable, onrejected);
+            }
+            get_dependents(THIS).push(thenable);
+            return thenable;
+        case FULFILLED:
+            prepend(THIS);
+            if (typeof onfulfilled === 'function') {
+                onto(THIS, onfulfilled, thenable);
+            }
+            else {
+                set_value(thenable, get_value(THIS));
+                set_status(thenable, FULFILLED);
+            }
+            return thenable;
+        case REJECTED:
+            prepend(THIS);
+            if (typeof onrejected === 'function') {
+                onto(THIS, onrejected, thenable);
+            }
+            else {
+                set_value(thenable, get_value(THIS));
+                set_status(thenable, REJECTED);
+            }
+            return thenable;
     }
-};
+    throw TypeError('Method Thenable.prototype.then called on incompatible receiver');
+}
 function onto(THIS, on, thenable) {
     try {
-        onto_try(thenable, on(THIS._value));
+        onto_try(thenable, on(get_value(THIS)));
     }
     catch (error) {
-        if (thenable._status === PENDING) {
-            thenable._value = error;
-            thenable._status = REJECTED;
+        if (get_status(thenable) === PENDING) {
+            set_value(thenable, error);
+            set_status(thenable, REJECTED);
         }
     }
 }
 function onto_try(thenable, value) {
     if (isThenable(value)) {
         prepend(value);
-        var status = value._status;
+        var status = get_status(value);
         if (status === PENDING) {
-            thenable._dependents = [];
-            value._dependents.push(thenable);
+            set_dependents(thenable, []);
+            get_dependents(value).push(thenable);
         }
         else {
-            thenable._value = value._value;
-            thenable._status = status;
+            set_value(thenable, get_value(value));
+            set_status(thenable, status);
         }
     }
-    else if (beenPromise(value)) {
-        thenable._dependents = [];
+    else if (isPromise(value)) {
+        set_dependents(thenable, []);
         depend(thenable, value);
     }
     else {
-        thenable._value = value;
-        thenable._status = FULFILLED;
+        set_value(thenable, value);
+        set_status(thenable, FULFILLED);
     }
 }
 
@@ -593,7 +685,7 @@ var create = Object.create || (
 		}
 		else {
 			dom = document.createElement('iframe');
-			dom.style.display = 'none';
+			dom.setAttribute('style', 'display:none !important;_display:none;');//dom.style.display = 'none';
 			var parent = document.body || document.documentElement;
 			parent.appendChild(dom);
 			dom.src = 'javascript:';
@@ -664,7 +756,7 @@ var Default = (
 	/*¡ j-globals: default (internal) */
 );
 
-Public.prototype = Private.prototype = seal ? /*#__PURE__*/ seal(prototype) : prototype;
+Public.prototype = Private.prototype = typeof WeakMap === 'function' ? /*#__PURE__*/ freeze(prototype) : seal ? /*#__PURE__*/ seal(prototype) : prototype;
 var _export = Default(Public, {
     version: version,
     Thenable: Public,

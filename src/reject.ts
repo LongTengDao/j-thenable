@@ -1,9 +1,9 @@
-import { REJECTED, Private } from './_';
+import { REJECTED, Private, set_status, set_value } from './_';
 
 export default function reject (error? :any) :Public {
 	var THIS :Private = new Private;
-	THIS._status = REJECTED;
-	THIS._value = error;
+	set_status(THIS, REJECTED);
+	set_value(THIS, error);
 	return THIS;
 };
 

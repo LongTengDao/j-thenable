@@ -1,4 +1,4 @@
-export const version :'4.0.1';
+export const version :'4.1.0';
 
 export type Thenable = Readonly<object & {
 	then (this :Thenable, onfulfilled? :(value :any) => any, onrejected? :(error :any) => any) :Thenable,

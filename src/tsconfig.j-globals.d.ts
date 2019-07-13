@@ -3,20 +3,29 @@ declare module '.Object.assign' { export default Object.assign; }
 declare module '.Object.create?=' { export default Object.create; }
 declare module '.Object.defineProperty' { export default Object.defineProperty; }
 declare module '.Object.freeze' { export default Object.freeze; }
+declare module '.Object.getPrototypeOf' { export default Object.getPrototypeOf; }
 declare module '.Object.prototype.hasOwnProperty' { export default Object.prototype.hasOwnProperty; }
 declare module '.Object.seal' { export default Object.seal; }
 
 declare module '.Promise.prototype' { export default Promise.prototype;
 	export { default as then } from '.Promise.prototype.then';
+	export { default as catch } from '.Promise.prototype.catch';
+	export { default as finally } from '.Promise.prototype.finally';
 }
+declare module '.Promise.prototype.catch' { export default Promise.prototype.catch; }
+declare module '.Promise.prototype.finally' { export default Promise.prototype.finally; }
 declare module '.Promise.prototype.then' { export default Promise.prototype.then; }
 declare module '.Promise.prototype?' { export default Promise.prototype;
 	export { default as then } from '.Promise.prototype.then';
+	export { default as catch } from '.Promise.prototype.catch';
+	export { default as finally } from '.Promise.prototype.finally';
 }
 
 declare module '.Symbol.toStringTag?' { export default Symbol.toStringTag; }
 
 declare module '.TypeError' { export default TypeError; }
+
+declare module '.WeakMap' { export default WeakMap; }
 
 declare module '.default?=' { export default Default;
 	function Default<Exports extends Readonly<{ [key :string] :any, default? :Module<Exports> }>> (exports :Exports) :Module<Exports>;
