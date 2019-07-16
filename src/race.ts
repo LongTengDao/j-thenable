@@ -1,6 +1,4 @@
-import undefined from '.undefined';
-
-import { flow, prepend, PENDING, FULFILLED, REJECTED, Status, isThenable, isPromise, Private, get_status, set_value, set_status, delete_dependents, set_dependents, get_dependents, get_value } from './_';
+import { flow, prepend, PENDING, FULFILLED, REJECTED, Status, isThenable, isPromise, Private, get_status, set_value, set_status, delete_dependents, set_dependents, get_dependents, get_value, set_onfulfilled, set_onrejected } from './_';
 
 export default function race (values :readonly any[]) :Public {
 	var THIS :Private = new Private;
@@ -17,15 +15,11 @@ export default function race (values :readonly any[]) :Public {
 
 function race_try (values :readonly any[], THIS :Private) :void {
 	set_dependents(THIS, []);
-	function _onfulfilled (value :any) :any { get_status(THIS)===PENDING && flow(THIS, value, FULFILLED); }
-	function _onrejected (error :any) :any { get_status(THIS)===PENDING && flow(THIS, error, REJECTED); }
-	var that :Private = {
-		_status: 0,
-		_value: undefined,
-		_dependents: undefined,
-		_onfulfilled: _onfulfilled,
-		_onrejected: _onrejected
-	} as Private;
+	function onfulfilled (value :any) :any { get_status(THIS)===PENDING && flow(THIS, value, FULFILLED); }
+	function onrejected (error :any) :any { get_status(THIS)===PENDING && flow(THIS, error, REJECTED); }
+	var that :Private = new Private;
+	set_onfulfilled(that, onfulfilled);
+	set_onrejected(that, onrejected);
 	for ( var length :number = values.length, index :number = 0; index<length; ++index ) {
 		var value :any = values[index];
 		if ( isThenable(value) ) {
@@ -39,7 +33,7 @@ function race_try (values :readonly any[], THIS :Private) :void {
 			}
 		}
 		else if ( isPromise(value) ) {
-			value.then(_onfulfilled, _onrejected);
+			value.then(onfulfilled, onrejected);
 			if ( get_status(THIS)!==PENDING ) { break; }
 		}
 		else {

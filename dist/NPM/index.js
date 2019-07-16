@@ -4,7 +4,7 @@ var freeze = Object.freeze;
 
 var seal = Object.seal;
 
-var version = '4.2.0';
+var version = '4.2.1';
 
 var Promise_prototype = typeof Promise!=='undefined' ? Promise.prototype : undefined;
 
@@ -18,7 +18,7 @@ var PENDING = 0;
 var FULFILLED = 1;
 var REJECTED = 2;
 var Private_call;
-var Private = function () { Private_call(this); };
+var Private = function Private() { Private_call(this); };
 var isThenable;
 var delete_dependents;
 var delete_onrejected;
@@ -58,8 +58,8 @@ if (typeof WeakMap === 'function') {
     delete_onfulfilled = function delete_onfulfilled(THIS) { ONFULFILLED['delete'](THIS); };
     delete_onrejected = function delete_onrejected(THIS) { ONREJECTED['delete'](THIS); };
     delete_onthen = function delete_onthen(THIS) { ONTHEN['delete'](THIS); };
-    delete_onfulfilled_if_has = function delete_onfulfilled_if_has(THIS) { ONFULFILLED['delete'](THIS); };
-    delete_onrejected_if_has = function delete_onrejected_if_has(THIS) { ONREJECTED['delete'](THIS); }; /**/
+    delete_onfulfilled_if_has = delete_onfulfilled;
+    delete_onrejected_if_has = delete_onrejected; /**/
     /* set undefined: * /
     delete_dependents = function delete_dependents (THIS :Private) :void { DEPENDENTS.set(THIS, undefined!); };
     delete_onfulfilled = function delete_onfulfilled (THIS :Private) :void { ONFULFILLED.set(THIS, undefined!); };
@@ -91,8 +91,8 @@ else {
         : function isThenable(value) { return value instanceof Private; };
     /* set undefined: */
     delete_dependents = function delete_dependents(THIS) { THIS._dependents = undefined$1; };
-    delete_onrejected = function delete_onrejected(THIS) { THIS._onrejected = undefined$1; };
     delete_onfulfilled = function delete_onfulfilled(THIS) { THIS._onfulfilled = undefined$1; };
+    delete_onrejected = function delete_onrejected(THIS) { THIS._onrejected = undefined$1; };
     delete_onthen = function delete_onthen(THIS) { THIS._onthen = undefined$1; };
     delete_onfulfilled_if_has = function delete_onfulfilled_if_has(THIS) { if (THIS._onfulfilled) {
         THIS._onfulfilled = undefined$1;
@@ -339,7 +339,7 @@ function all(values) {
 }
 function all_try(values, THIS) {
     set_dependents(THIS, []);
-    function _onrejected(error) { get_status(THIS) === PENDING && flow(THIS, error, REJECTED); }
+    function onrejected(error) { get_status(THIS) === PENDING && flow(THIS, error, REJECTED); }
     var _value = [];
     var count = 0;
     var counted;
@@ -351,22 +351,19 @@ function all_try(values, THIS) {
             if (_status === PENDING) {
                 ++count;
                 _value[index] = undefined$1;
-                get_dependents(value).push({
-                    _status: 0,
-                    _value: undefined$1,
-                    _dependents: undefined$1,
-                    _onfulfilled: function (index) {
-                        return function (value) {
-                            if (get_status(THIS) === PENDING) {
-                                _value[index] = value;
-                                if (!--count && counted) {
-                                    flow(THIS, _value, FULFILLED);
-                                }
+                var that = new Private;
+                (function (index) {
+                    set_onfulfilled(that, function onfulfilled(value) {
+                        if (get_status(THIS) === PENDING) {
+                            _value[index] = value;
+                            if (!--count && counted) {
+                                flow(THIS, _value, FULFILLED);
                             }
-                        };
-                    }(index),
-                    _onrejected: _onrejected
-                });
+                        }
+                    });
+                })(index);
+                set_onrejected(that, onrejected);
+                get_dependents(value).push(that);
             }
             else if (_status === REJECTED) {
                 set_value(THIS, get_value(value));
@@ -380,9 +377,9 @@ function all_try(values, THIS) {
         else if (isPromise(value)) {
             ++count;
             _value[index] = undefined$1;
-            value.then(function (index) {
+            (function (index) {
                 var red;
-                return function (value) {
+                value.then(function onfulfilled(value) {
                     if (red) {
                         return;
                     }
@@ -393,8 +390,8 @@ function all_try(values, THIS) {
                             flow(THIS, _value, FULFILLED);
                         }
                     }
-                };
-            }(index), _onrejected);
+                }, onrejected);
+            })(index);
         }
         else {
             _value[index] = value;
@@ -424,15 +421,11 @@ function race(values) {
 }
 function race_try(values, THIS) {
     set_dependents(THIS, []);
-    function _onfulfilled(value) { get_status(THIS) === PENDING && flow(THIS, value, FULFILLED); }
-    function _onrejected(error) { get_status(THIS) === PENDING && flow(THIS, error, REJECTED); }
-    var that = {
-        _status: 0,
-        _value: undefined$1,
-        _dependents: undefined$1,
-        _onfulfilled: _onfulfilled,
-        _onrejected: _onrejected
-    };
+    function onfulfilled(value) { get_status(THIS) === PENDING && flow(THIS, value, FULFILLED); }
+    function onrejected(error) { get_status(THIS) === PENDING && flow(THIS, error, REJECTED); }
+    var that = new Private;
+    set_onfulfilled(that, onfulfilled);
+    set_onrejected(that, onrejected);
     for (var length = values.length, index = 0; index < length; ++index) {
         var value = values[index];
         if (isThenable(value)) {
@@ -448,7 +441,7 @@ function race_try(values, THIS) {
             }
         }
         else if (isPromise(value)) {
-            value.then(_onfulfilled, _onrejected);
+            value.then(onfulfilled, onrejected);
             if (get_status(THIS) !== PENDING) {
                 break;
             }

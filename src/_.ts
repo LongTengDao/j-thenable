@@ -24,14 +24,13 @@ export var FULFILLED :1 = 1;
 export var REJECTED :2 = 2;
 
 export var Private_call :(THIS :Private) => void;
-export var Private :{ new () :Private } = function (this :Private) :void { Private_call(this); } as any;
+export var Private :{ new () :Private } = function Private (this :Private) :void { Private_call(this); } as any;
 export var isThenable :(value :any) => value is Private;
 
 export var delete_dependents :(THIS :Private) => void;
 var delete_onrejected :(THIS :Private) => void;
 var delete_onfulfilled :(THIS :Private) => void;
 var delete_onthen :(THIS :Private) => void;
-
 var delete_onfulfilled_if_has :(THIS :Private) => void;
 var delete_onrejected_if_has :(THIS :Private) => void;
 
@@ -71,8 +70,8 @@ if ( typeof WeakMap==='function' ) {
 	delete_onfulfilled = function delete_onfulfilled (THIS :Private) :void { ONFULFILLED['delete'](THIS); };
 	delete_onrejected = function delete_onrejected (THIS :Private) :void { ONREJECTED['delete'](THIS); };
 	delete_onthen = function delete_onthen (THIS :Private) :void { ONTHEN['delete'](THIS); };
-	delete_onfulfilled_if_has = function delete_onfulfilled_if_has (THIS :Private) :void { ONFULFILLED['delete'](THIS); };
-	delete_onrejected_if_has = function delete_onrejected_if_has (THIS :Private) :void { ONREJECTED['delete'](THIS); };/**/
+	delete_onfulfilled_if_has = delete_onfulfilled;
+	delete_onrejected_if_has = delete_onrejected;/**/
 	/* set undefined: * /
 	delete_dependents = function delete_dependents (THIS :Private) :void { DEPENDENTS.set(THIS, undefined!); };
 	delete_onfulfilled = function delete_onfulfilled (THIS :Private) :void { ONFULFILLED.set(THIS, undefined!); };
@@ -107,8 +106,8 @@ else {
 	
 	/* set undefined: */
 	delete_dependents = function delete_dependents (THIS :Private) :void { THIS._dependents = undefined; };
-	delete_onrejected = function delete_onrejected (THIS :Private) :void { THIS._onrejected = undefined; };
 	delete_onfulfilled = function delete_onfulfilled (THIS :Private) :void { THIS._onfulfilled = undefined; };
+	delete_onrejected = function delete_onrejected (THIS :Private) :void { THIS._onrejected = undefined; };
 	delete_onthen = function delete_onthen (THIS :Private) :void { THIS._onthen = undefined; };
 	delete_onfulfilled_if_has = function delete_onfulfilled_if_has (THIS :Private) :void { if ( THIS._onfulfilled ) { THIS._onfulfilled = undefined; } };
 	delete_onrejected_if_has = function delete_onrejected_if_has (THIS :Private) :void { if ( THIS._onrejected ) { THIS._onrejected = undefined; } };/**/

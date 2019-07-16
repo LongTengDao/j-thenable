@@ -4,19 +4,19 @@ module.exports = require('@ltd/j-dev')(__dirname+'/..')(async function ({ import
 	
 	const Thenable = await import_default('src/default', { ES: 3 });
 	
-	let e;
+	let e = null;
 	
 	let n = -1;
 	
 	function log (m) {
 		if ( e ) { return; }
-		if ( m!==++n ) { e = e || Error(`log(${m}) when ${n} is expected`); }
+		if ( m!== ++n ) { e = e || Error(`log(${m}) when ${n} is expected`); }
 	}
 	
 	log(0);
 	
 	new Thenable(function executor (resolve) {
-		log(1)
+		log(1);
 		resolve('executor');
 		log(2);
 	}).then(function onfulfilled (value) {
@@ -53,9 +53,21 @@ module.exports = require('@ltd/j-dev')(__dirname+'/..')(async function ({ import
 	});
 	
 	Thenable.all([
-		new Thenable(function executor (resolve) { log(7); resolve(1); log(8); }),
-		new Thenable(function executor (resolve) { log(9); resolve(2); log(10); }),
-		new Thenable(function executor (resolve) { log(11); resolve(3); log(12); }),
+		new Thenable(function executor (resolve) {
+			log(7);
+			resolve(1);
+			log(8);
+		}),
+		new Thenable(function executor (resolve) {
+			log(9);
+			resolve(2);
+			log(10);
+		}),
+		new Thenable(function executor (resolve) {
+			log(11);
+			resolve(3);
+			log(12);
+		}),
 	]).then(function onfulfilled (values) {
 		if ( ''+values!=='1,2,3' ) { e = e || Error(`got values ${values} when 1,2,3 is expected`); }
 		log(13);
@@ -80,7 +92,27 @@ module.exports = require('@ltd/j-dev')(__dirname+'/..')(async function ({ import
 		Thenable.resolve(2),
 	]).then(function onfulfilled (values) {
 		if ( ''+values!=='1,2' ) { e = e || Error(`got values ${values} when 1,2 is expected`); }
+		log(17);
 	});
+	
+	log(18);
+	
+	Thenable.pend(function onthen () {
+		return 1;
+	}).then(function onfulfilled () {
+		log(19);
+	});
+	
+	log(20);
+	
+	let value = Thenable.await(
+		Thenable.pend(function onthen () {
+			return Thenable.all([
+				Thenable.pend(function onthen () {}),
+			]);
+		})
+	);
+	if ( !Array.isArray(value) ) { e = e || Error('value is still thenable'); }
 	
 	if ( e ) { throw e; }
 	
