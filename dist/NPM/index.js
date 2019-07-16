@@ -4,7 +4,7 @@ var freeze = Object.freeze;
 
 var seal = Object.seal;
 
-var version = '4.1.0';
+var version = '4.1.1';
 
 var Promise_prototype = typeof Promise!=='undefined' ? Promise.prototype : undefined;
 
@@ -600,39 +600,39 @@ var prototype = typeof WeakMap === 'function'
     };
 function then(onfulfilled, onrejected) {
     var THIS = this;
-    var thenable = new Private;
-    switch (get_status(THIS)) {
-        case PENDING:
-            prepend(THIS);
-            set_dependents(thenable, []);
-            if (typeof onfulfilled === 'function') {
-                set_onfulfilled(thenable, onfulfilled);
-            }
-            if (typeof onrejected === 'function') {
-                set_onrejected(thenable, onrejected);
-            }
-            get_dependents(THIS).push(thenable);
-            return thenable;
-        case FULFILLED:
-            prepend(THIS);
-            if (typeof onfulfilled === 'function') {
-                onto(THIS, onfulfilled, thenable);
-            }
-            else {
-                set_value(thenable, get_value(THIS));
-                set_status(thenable, FULFILLED);
-            }
-            return thenable;
-        case REJECTED:
-            prepend(THIS);
-            if (typeof onrejected === 'function') {
-                onto(THIS, onrejected, thenable);
-            }
-            else {
-                set_value(thenable, get_value(THIS));
-                set_status(thenable, REJECTED);
-            }
-            return thenable;
+    if (isThenable(THIS)) {
+        prepend(THIS);
+        var thenable = new Private;
+        switch (get_status(THIS)) {
+            case PENDING:
+                set_dependents(thenable, []);
+                if (typeof onfulfilled === 'function') {
+                    set_onfulfilled(thenable, onfulfilled);
+                }
+                if (typeof onrejected === 'function') {
+                    set_onrejected(thenable, onrejected);
+                }
+                get_dependents(THIS).push(thenable);
+                return thenable;
+            case FULFILLED:
+                if (typeof onfulfilled === 'function') {
+                    onto(THIS, onfulfilled, thenable);
+                }
+                else {
+                    set_value(thenable, get_value(THIS));
+                    set_status(thenable, FULFILLED);
+                }
+                return thenable;
+            case REJECTED:
+                if (typeof onrejected === 'function') {
+                    onto(THIS, onrejected, thenable);
+                }
+                else {
+                    set_value(thenable, get_value(THIS));
+                    set_status(thenable, REJECTED);
+                }
+                return thenable;
+        }
     }
     throw TypeError('Method Thenable.prototype.then called on incompatible receiver');
 }

@@ -6,7 +6,7 @@ declare class exports {
 	constructor (executor :(resolve :(value :any) => void, reject :(value :any) => void) => void)
 	then (this :exports, onfulfilled? :(value :any) => void, onrejected? :(value :any) => void) :exports
 	
-	static version :'4.1.0';
+	static version :'4.1.1';
 	static all (values :readonly any[]) :exports
 	static race (values :readonly any[]) :exports
 	static resolve (value? :any) :exports

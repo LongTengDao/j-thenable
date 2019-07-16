@@ -1,7 +1,7 @@
 {
 	"name": "@ltd/j-thenable",
 	"description": "Sync stack anti-overflow util which's API is like Promise. Belong to \"Plan J\".／模仿 Promise API 的同步防爆栈工具。从属于“简计划”。",
-	"version": "4.1.0",
+	"version": "4.1.1",
 	"license": "LGPL-3.0",
 	"author": "龙腾道 <LongTengDao@LongTengDao.com> (www.LongTengDao.com)",
 	"bugs": "https://GitHub.com/LongTengDao/j-thenable/issues",
