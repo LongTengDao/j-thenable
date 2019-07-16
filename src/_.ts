@@ -1,6 +1,7 @@
 import Promise_prototype from '.Promise.prototype?';
 import WeakMap from '.WeakMap';
 import getPrototypeOf from '.Object.getPrototypeOf';
+import preventExtensions from '.Object.preventExtensions';
 import undefined from '.undefined';
 
 export type Executor = (resolve? :(value :any) => void, reject? :(error :any) => void) => void;
@@ -56,7 +57,13 @@ if ( typeof WeakMap==='function' ) {
 	var ONREJECTED :WeakMap<Private, Onrejected> = new WeakMap;
 	var ONTHEN :WeakMap<Private, Onthen> = new WeakMap;
 	
-	Private_call = function Private_call (THIS :Private) :void { STATUS.set(THIS, PENDING); };
+	Private_call = preventExtensions && /*#__PURE__*/ function () {
+		var o :any = preventExtensions({});
+		VALUE.set(o, o);
+		return VALUE.has(o);
+	}()
+		? function Private_call (THIS :Private) :void { STATUS.set(preventExtensions(THIS), PENDING); }
+		: function Private_call (THIS :Private) :void { STATUS.set(THIS, PENDING); };
 	isThenable = function isThenable (value :any) :value is Private { return STATUS.has(value); };
 	
 	/* delete: */

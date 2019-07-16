@@ -4,6 +4,7 @@ declare module '.Object.create?=' { export default Object.create; }
 declare module '.Object.defineProperty' { export default Object.defineProperty; }
 declare module '.Object.freeze' { export default Object.freeze; }
 declare module '.Object.getPrototypeOf' { export default Object.getPrototypeOf; }
+declare module '.Object.preventExtensions' { export default Object.preventExtensions; }
 declare module '.Object.prototype.hasOwnProperty' { export default Object.prototype.hasOwnProperty; }
 declare module '.Object.seal' { export default Object.seal; }
 

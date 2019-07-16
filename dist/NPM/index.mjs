@@ -2,7 +2,7 @@
  * 模块名称：j-thenable
  * 模块功能：模仿 Promise API 的同步防爆栈工具。从属于“简计划”。
    　　　　　Sync stack anti-overflow util which's API is like Promise. Belong to "Plan J".
- * 模块版本：4.1.1
+ * 模块版本：4.2.0
  * 许可条款：LGPL-3.0
  * 所属作者：龙腾道 <LongTengDao@LongTengDao.com> (www.LongTengDao.com)
  * 问题反馈：https://GitHub.com/LongTengDao/j-thenable/issues
@@ -13,11 +13,13 @@ var freeze = Object.freeze;
 
 var seal = Object.seal;
 
-var version = '4.1.1';
+var version = '4.2.0';
 
 var Promise_prototype = typeof Promise!=='undefined' ? Promise.prototype : undefined;
 
 var getPrototypeOf = Object.getPrototypeOf;
+
+var preventExtensions = Object.preventExtensions;
 
 var undefined$1 = void 0;
 
@@ -52,7 +54,13 @@ if (typeof WeakMap === 'function') {
     var ONFULFILLED = new WeakMap;
     var ONREJECTED = new WeakMap;
     var ONTHEN = new WeakMap;
-    Private_call = function Private_call(THIS) { STATUS.set(THIS, PENDING); };
+    Private_call = preventExtensions && /*#__PURE__*/ function () {
+        var o = preventExtensions({});
+        VALUE.set(o, o);
+        return VALUE.has(o);
+    }()
+        ? function Private_call(THIS) { STATUS.set(preventExtensions(THIS), PENDING); }
+        : function Private_call(THIS) { STATUS.set(THIS, PENDING); };
     isThenable = function isThenable(value) { return STATUS.has(value); };
     /* delete: */
     delete_dependents = function delete_dependents(THIS) { DEPENDENTS['delete'](THIS); };

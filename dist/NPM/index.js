@@ -4,11 +4,13 @@ var freeze = Object.freeze;
 
 var seal = Object.seal;
 
-var version = '4.1.1';
+var version = '4.2.0';
 
 var Promise_prototype = typeof Promise!=='undefined' ? Promise.prototype : undefined;
 
 var getPrototypeOf = Object.getPrototypeOf;
+
+var preventExtensions = Object.preventExtensions;
 
 var undefined$1 = void 0;
 
@@ -43,7 +45,13 @@ if (typeof WeakMap === 'function') {
     var ONFULFILLED = new WeakMap;
     var ONREJECTED = new WeakMap;
     var ONTHEN = new WeakMap;
-    Private_call = function Private_call(THIS) { STATUS.set(THIS, PENDING); };
+    Private_call = preventExtensions && /*#__PURE__*/ function () {
+        var o = preventExtensions({});
+        VALUE.set(o, o);
+        return VALUE.has(o);
+    }()
+        ? function Private_call(THIS) { STATUS.set(preventExtensions(THIS), PENDING); }
+        : function Private_call(THIS) { STATUS.set(THIS, PENDING); };
     isThenable = function isThenable(value) { return STATUS.has(value); };
     /* delete: */
     delete_dependents = function delete_dependents(THIS) { DEPENDENTS['delete'](THIS); };
