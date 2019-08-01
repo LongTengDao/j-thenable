@@ -1,13 +1,18 @@
-import Promise_prototype from '.Promise.prototype?';
+import Promise from '.Promise';
 import WeakMap from '.WeakMap';
 import getPrototypeOf from '.Object.getPrototypeOf';
 import preventExtensions from '.Object.preventExtensions';
 import undefined from '.undefined';
 
+export var Executor :never;
 export type Executor = (resolve? :(value :any) => void, reject? :(error :any) => void) => void;
+export var Onfulfilled :never;
 export type Onfulfilled = (value :any) => any;
+export var Onrejected :never;
 export type Onrejected = (error :any) => any;
+export var Onthen :never;
 export type Onthen = () => any;
+export var Status :never;
 export type Status = 0 | 1 | 2;
 export type Private = {
 	_status :Status,
@@ -127,14 +132,17 @@ else {
 	set_onthen = function set_onthen (THIS :Private, onthen :Onthen) :void { THIS._onthen = onthen; };
 }
 
-export var isPromise :(value :any) => value is Readonly<Promise<any>> = Promise_prototype
-	? getPrototypeOf
-		? function isPromise (value :any) :value is Readonly<Promise<any>> { return value!=null && getPrototypeOf(value)===Promise_prototype; }
-		: function () {
-			function Promise () {}
-			Promise.prototype = Promise_prototype;
-			return function isPromise (value :any) :value is Readonly<Promise<any>> { return value instanceof Promise; };
-		}()
+export var isPromise :(value :any) => value is Readonly<Promise<any>> = typeof Promise==='function'
+	? function () {
+		if ( getPrototypeOf ) {
+			var prototype = Promise.prototype;
+			return function isPromise (value :any) :value is Readonly<Promise<any>> { return value!=null && getPrototypeOf(value)===prototype; };
+		}
+		else {
+			var constructor = Promise;
+			return function isPromise (value :any) :value is Readonly<Promise<any>> { return value instanceof constructor; };
+		}
+	}()
 	: function isPromise () { return false; } as any;
 
 type PrependStack = { nextStack :PrependStack | null, thenable :Private, onthen :Onthen };

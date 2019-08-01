@@ -8,19 +8,7 @@ declare module '.Object.preventExtensions' { export default Object.preventExtens
 declare module '.Object.prototype.hasOwnProperty' { export default Object.prototype.hasOwnProperty; }
 declare module '.Object.seal' { export default Object.seal; }
 
-declare module '.Promise.prototype' { export default Promise.prototype;
-	export { default as then } from '.Promise.prototype.then';
-	export { default as catch } from '.Promise.prototype.catch';
-	export { default as finally } from '.Promise.prototype.finally';
-}
-declare module '.Promise.prototype.catch' { export default Promise.prototype.catch; }
-declare module '.Promise.prototype.finally' { export default Promise.prototype.finally; }
-declare module '.Promise.prototype.then' { export default Promise.prototype.then; }
-declare module '.Promise.prototype?' { export default Promise.prototype;
-	export { default as then } from '.Promise.prototype.then';
-	export { default as catch } from '.Promise.prototype.catch';
-	export { default as finally } from '.Promise.prototype.finally';
-}
+declare module '.Promise' { export default Promise; }
 
 declare module '.Symbol.toStringTag?' { export default Symbol.toStringTag; }
 
